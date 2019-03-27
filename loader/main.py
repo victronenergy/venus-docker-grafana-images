@@ -174,7 +174,7 @@ def main():
             'portalIDs': portalIDs
         }]
     elif 'mqtt_servers' not in config:
-        loggin.info('Lookin for servers via UPNP')
+        logging.info('Lookin for servers via UPNP')
         devices = upnp.find()
         if len(devices) == 0:
             logging.error('No servers found via UPNP')
