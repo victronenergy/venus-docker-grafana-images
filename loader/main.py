@@ -128,7 +128,12 @@ def get_vrm_portalIDs(server):
     return res
     
 def main():
-    logging.basicConfig(level=logging.INFO,
+    level=logging.INFO
+    if 'LOADER_DEBUG' in os.environ:
+        if os.environ['LOADER_DEBUG'] == '1':
+            level = logging.DEBUG
+    
+    logging.basicConfig(level=level,
                         format='%(asctime)s %(levelname)s %(message)s')
 
     parser = argparse.ArgumentParser(description='mqtt-to-db')
@@ -169,6 +174,7 @@ def main():
             'portalIDs': portalIDs
         }]
     elif 'mqtt_servers' not in config:
+        loggin.info('Lookin for servers via UPNP')
         devices = upnp.find()
         if len(devices) == 0:
             logging.error('No servers found via UPNP')
