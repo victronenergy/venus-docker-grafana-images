@@ -31,22 +31,22 @@ import os
 def init(config):
     logging.info('Connecting to influxdb...')
 
-    if 'INFLUXDB_HOST' in os.environ:
-        host = os.environ['INFLUXDB_HOST']
+    if 'LOADER_DB_HOST' in os.environ:
+        host = os.environ['LOADER_DB_HOST']
     elif 'host' in config:
         host = config['host']
     else:
         host = 'localhost'
 
-    if 'INFLUXDB_PORT' in os.environ:
-        port = int(os.environ['INFLUXDB_PORT'])
+    if 'LOADER_DB_PORT' in os.environ:
+        port = int(os.environ['LOADER_DB_PORT'])
     elif 'port' in config:
         port = config['port']
     else:
         port = 8086
     
-    if 'INFLUXDB_RETENTION' in os.environ:
-        retention = os.environ['INFLUXDB_RETENTION']
+    if 'LOADER_DB_RETENTION' in os.environ:
+        retention = os.environ['LOADER_DB_RETENTION']
     elif 'retention' in config:
         retention = config['retention']
     else:
