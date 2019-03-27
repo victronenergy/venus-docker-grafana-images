@@ -26,6 +26,7 @@ from influxdb.exceptions import InfluxDBClientError
 import json
 import sys
 import logging
+import os
 
 def init(config):
     logging.info('Connecting to influxdb...')
@@ -38,10 +39,14 @@ def init(config):
         port = config['port']
     else:
         port = 8086
-    if 'retention' in config:
+    if 'INFLUXDB_RETENTION' in os.environ:
+        retention = os.environ['INFLUXDB_RETENTION']
+    elif 'retention' in config:
         retention = config['retention']
     else:
         retention = '30d'
+
+    logging.info('loaded influxdb config host: %s port:%d retention %s' % (host, port, retention))
         
     global client
     client = InfluxDBClient(host=host, port=port, retries=0)

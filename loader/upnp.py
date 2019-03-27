@@ -54,7 +54,7 @@ def find():
     except socket.timeout:
         pass
 
-    //print(found)
+    #print(found)
 
     portalIds = []
 
