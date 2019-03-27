@@ -30,22 +30,28 @@ import os
 
 def init(config):
     logging.info('Connecting to influxdb...')
-    
-    if 'host' in config:
+
+    if 'INFLUXDB_HOST' in os.environ:
+        host = os.environ['INFLUXDB_HOST']
+    elif 'host' in config:
         host = config['host']
     else:
-        host = 'influxdb'
-    if 'port' in config:
+        host = 'localhost'
+
+    if 'INFLUXDB_PORT' in os.environ:
+        port = int(os.environ['INFLUXDB_PORT'])
+    elif 'port' in config:
         port = config['port']
     else:
         port = 8086
+    
     if 'INFLUXDB_RETENTION' in os.environ:
         retention = os.environ['INFLUXDB_RETENTION']
     elif 'retention' in config:
         retention = config['retention']
     else:
         retention = '30d'
-
+    
     logging.info('loaded influxdb config host: %s port:%d retention %s' % (host, port, retention))
         
     global client
