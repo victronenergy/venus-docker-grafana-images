@@ -40,14 +40,21 @@ keep_alive_interval = 62.0
 
 def on_connect(mqttc, obj, flags, rc):
     if rc is 0:
-        logging.info('Connected to MQTT at %s' % obj['address'])
-        for id in obj['portalIDs']:
-            logging.info('Subscribing to portalId %s' % id)
-            mqttc.subscribe('N/%s/+/#' % id)
-            mqttc.publish('R/%s/system/0/Serial' % id)
-
-        server['timer'] = threading.Timer(keep_alive_interval, keep_alive, [mqttc, obj])
-        server['timer'].start()
+        try:
+            logging.info('Connected to MQTT at %s' % obj['address'])
+            for id in obj['portalIDs']:
+                logging.info('Subscribing to portalId %s' % id)
+                mqttc.subscribe('N/%s/+/#' % id)
+                mqttc.publish('R/%s/system/0/Serial' % id)
+            
+            logging.info('Starting timer %d' % keep_alive_interval)
+            obj['timer'] = threading.Timer(keep_alive_interval, keep_alive, [mqttc, obj])
+            obj['timer'].start()
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except:
+            logging.error('Unexpected error:', sys.exc_info())
+            traceback.print_exc()
     else:
         logging.error('Unable to connect %d', rc)
 
@@ -174,7 +181,7 @@ def main():
             'portalIDs': portalIDs
         }]
     elif 'mqtt_servers' not in config:
-        logging.info('Lookin for servers via UPNP')
+        logging.info('Looking for servers via UPNP')
         devices = upnp.find()
         if len(devices) == 0:
             logging.error('No servers found via UPNP')
