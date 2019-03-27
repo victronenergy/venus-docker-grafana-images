@@ -47,7 +47,7 @@ def on_connect(mqttc, obj, flags, rc):
                 mqttc.subscribe('N/%s/+/#' % id)
                 mqttc.publish('R/%s/system/0/Serial' % id)
             
-            logging.info('Starting timer %d' % keep_alive_interval)
+            logging.debug('Starting timer %d' % keep_alive_interval)
             obj['timer'] = threading.Timer(keep_alive_interval, keep_alive, [mqttc, obj])
             obj['timer'].start()
         except (KeyboardInterrupt, SystemExit):
@@ -61,7 +61,7 @@ def on_connect(mqttc, obj, flags, rc):
 def on_disconnect(client, userdata, rc):
     logging.info('MQTT disconnected from %s: %d' %  (userdata['address'], rc))
     if 'timer' in userdata:
-        userdata['timer'].stop()
+        userdata['timer'].cancel()
    
 def on_message(mqttc, obj, msg):
     #data = json.dumps(msg.payload)
@@ -93,10 +93,11 @@ def on_log(mqttc, obj, level, string):
     logging.debug(string)
 
 def keep_alive(mqttc, server):
-    logging.info('Sending keepailve to %s' % server['address'])
     try:
         for id in server['portalIDs']:
+            logging.info('Sending keepailve to %s (%s)' % (server['address'], id))
             res = mqttc.publish('R/%s/system/0/Serial' % id)
+            
             #print('kp res: ' + str(res))
     except (KeyboardInterrupt, SystemExit):
         raise
