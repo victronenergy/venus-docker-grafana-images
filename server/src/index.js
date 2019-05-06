@@ -72,6 +72,9 @@ let store = createStore(
     }
     if (action.type === 'LOG') {
       state.log.entries.push(action.data)
+      if (state.log.length > 100) {
+        state.log.splice(0, state.log.length - 100)
+      }
       return {
         ...state,
         log: {

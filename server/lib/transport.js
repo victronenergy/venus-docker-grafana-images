@@ -21,7 +21,7 @@ module.exports = class LogStorageTransport extends Transport {
     this.entries.push(info)
 
     if (this.entries.length > this.size) {
-      this.entries.splice(0, this.entries.splice - this.size)
+      this.entries.splice(0, this.entries.length - this.size)
     }
 
     this.app.emit('serverevent', {
