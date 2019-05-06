@@ -9,13 +9,30 @@ function InfluxDB (app) {
   this.info = this.logger.info.bind(this.logger)
   this.connected = false
 
+  this.accumulatedPoints = []
+  this.lastWriteTime = Date.now()
+  this.batchWriteInterval =
+    (_.isUndefined(app.config.settings.influxdb.batchWriteInterval)
+      ? 10
+      : app.config.settings.influxdb.batchWriteInterval) * 1000
+
   app.on('settingsChanged', settings => {
+    this.batchWriteInterval =
+      (_.isUndefined(app.config.settings.influxdb.batchWriteInterval)
+        ? 10
+        : app.config.settings.influxdb.batchWriteInterval) * 1000
+
     if (!this.connected) {
       return
     }
 
     const { host, port, database } = settings.influxdb
-    if (this.host != host || this.port != port || this.database != database) {
+
+    if (
+      this.host !== host ||
+      this.port !== port ||
+      this.database !== database
+    ) {
       this.connected = false
       this.connect()
         .then(() => {})
@@ -104,7 +121,7 @@ InfluxDB.prototype.store = function (
   measurement,
   value
 ) {
-  if (this.connected == false || _.isUndefined(value) || value === null) {
+  if (this.connected === false || _.isUndefined(value) || value === null) {
     return
   }
 
@@ -119,31 +136,41 @@ InfluxDB.prototype.store = function (
     return
   }
 
-  const body = [
-    {
-      measurement: measurement,
-      tags: {
-        portalId: portalId,
-        instanceNumber: instanceNumber,
-        name: name || portalId
-      },
-      fields: {
-        [valueKey]: value
-      }
+  const point = {
+    timestamp: new Date(),
+    measurement: measurement,
+    tags: {
+      portalId: portalId,
+      instanceNumber: instanceNumber,
+      name: name || portalId
+    },
+    fields: {
+      [valueKey]: value
     }
-  ]
+  }
 
-  this.client
-    .then(client => {
-      client.writePoints(body).catch(err => {
-        //this.app.emit('error', err)
-        this.debug(err)
+  this.accumulatedPoints.push(point)
+  const now = Date.now()
+  if (
+    this.batchWriteInterval === 0 ||
+    now - this.lastWriteTime > this.batchWriteInterval
+  ) {
+    this.lastWriteTime = now
+
+    this.client
+      .then(client => {
+        client.writePoints(this.accumulatedPoints).catch(err => {
+          //this.app.emit('error', err)
+          this.debug(err)
+        })
+        this.accumulatedPoints = []
       })
-    })
-    .catch(error => {
-      //this.app.emit('error', error)
-      this.debug(error)
-    })
+      .catch(error => {
+        //this.app.emit('error', error)
+        this.debug(error)
+        this.accumulatedPoints = []
+      })
+  }
 }
 
 module.exports = InfluxDB
