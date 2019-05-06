@@ -145,9 +145,12 @@ Loader.prototype.onMessage = function (client, topic, message) {
 
     if (!name && client !== this.vrmClient) {
       if (measurement === 'settings/Settings/SystemSetup/SystemName') {
-        this.logger.debug('got name %s : %j', topic, json.value)
-        client.deviceName = name
-        this.app.upnpDiscovered[id].name = json.value
+        if (json.value.length === 0) {
+          client.deviceName = id
+        } else {
+          this.logger.info('Detected name %s : %j', id, json.value)
+          client.deviceName = json.value
+        }
       }
       return
     }
