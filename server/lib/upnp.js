@@ -1,6 +1,7 @@
 const Client = require('node-ssdp').Client
 const fetch = require('node-fetch')
 const parseXml = require('xml2js').parseString
+const util = require('util')
 
 module.exports = function (app) {
   const logger = app.getLogger('upnp')
@@ -62,5 +63,88 @@ module.exports = function (app) {
 }
 
 if (require.main === module) {
-  module.exports().start()
+  let cachedLogs = []
+  let cachedDiscovery = []
+
+  process.on('SIGINT', function () {
+    process.exit()
+  })
+
+  function postLog (info) {
+    return new Promise((resolve, reject) => {
+      fetch('http://localhost:8088/log', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(info)
+      })
+        .then(response => response.text())
+        .then(resolve)
+        .catch(err => {
+          console.log(err)
+          cachedLogs.push(info)
+          reject(err)
+        })
+    })
+  }
+
+  function postDiscovery (info) {
+    fetch('http://localhost:8088/upnpDiscovered', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(info)
+    })
+      .then(response => response.text())
+      .catch(err => {
+        console.log(err)
+        cachedDiscovery.push(info)
+      })
+  }
+
+  module
+    .exports({
+      getLogger: mame => {
+        return {
+          info: (...args) => {
+            const msg = util.format(...args)
+            console.log(msg)
+            postLog({ level: 'info', message: msg })
+              .then(() => {})
+              .catch(() => {})
+          },
+          error: err => {
+            console.error(err)
+            postLog({ level: 'error', message: err.toString() })
+              .then(() => {})
+              .catch(() => {})
+          }
+        }
+      },
+      emit: (event, data) => {
+        postDiscovery(data)
+      }
+    })
+    .start()
+
+  setInterval(() => {
+    const logs = cachedLogs
+    const discovered = cachedDiscovery
+
+    cachedLogs = []
+    cachedDiscovery = []
+
+    logs.forEach(log => {
+      postLog(log)
+        .then(() => {})
+        .catch(err => {
+          console.log(err)
+        })
+    })
+    discovered.forEach(info => {
+      postDiscovery(info)
+    })
+  }, 5000)
 }

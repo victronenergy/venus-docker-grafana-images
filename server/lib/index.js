@@ -11,6 +11,10 @@ const LogStorageTransport = require('./transport')
 const logMessages = []
 
 function Server (opts) {
+  process.on('SIGINT', function () {
+    process.exit()
+  })
+
   const bodyParser = require('body-parser')
   const app = express()
   this.app = app
@@ -203,16 +207,6 @@ Server.prototype.start = function () {
       }, 5000)
     })
 
-  app.put('/refreshVRM', (req, res, next) => {
-    app.vrmDiscovered = []
-    app.emit('serverevent', {
-      type: 'VRMDISCOVERY',
-      data: []
-    })
-    app.vrm.loadPortalIDs()
-    res.status(200).send()
-  })
-
   function settingsChanged (settings) {
     if (settings.upnp.enabled && app.upnp.isRunning() === false) {
       app.upnpDiscovered = []
@@ -220,15 +214,14 @@ Server.prototype.start = function () {
         type: 'UPNPDISCOVERY',
         data: []
       })
-      app.upnp.start()
+      if (!app.argv['external-upnp']) {
+        app.upnp.start()
+      }
     }
     if (!settings.upnp.enabled && app.upnp.isRunning()) {
-      app.upnpDiscovered = []
-      app.emit('serverevent', {
-        type: 'UPNPDISCOVERY',
-        data: []
-      })
-      app.upnp.stop()
+      if (!app.argv['external-upnp']) {
+        app.upnp.stop()
+      }
     }
 
     if (settings.vrm.enabled && _.keys(app.vrmDiscovered).length === 0) {

@@ -6,6 +6,6 @@ COPY venus-server-2.0.0.tgz /
 
 RUN npm install -g --unsafe-perm /venus-server-2.0.0.tgz
 
-RUN mkdir /config
+WORKDIR "/usr/local/lib/node_modules/venus-server"
 
-CMD [ "venus-server", "--external-upnp" ]
+CMD [ "node", "lib/upnp.js" ]

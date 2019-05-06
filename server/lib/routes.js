@@ -37,6 +37,27 @@ module.exports = function (app) {
     res.json(app.logTransport.entries)
   })
 
+  const upnpLog = app.getLogger('upnp')
+  app.post('/log', (req, res, next) => {
+    upnpLog[req.body.level](req.body.message)
+    res.send()
+  })
+
+  app.post('/upnpDiscovered', (req, res, next) => {
+    app.emit('upnpDiscovered', req.body)
+    res.send()
+  })
+
+  app.put('/refreshVRM', (req, res, next) => {
+    app.vrmDiscovered = []
+    app.emit('serverevent', {
+      type: 'VRMDISCOVERY',
+      data: []
+    })
+    app.vrm.loadPortalIDs()
+    res.status(200).send()
+  })
+
   app.put('/debug', (req, res, next) => {
     app.rootLogger.level = req.body.value ? 'debug' : 'info'
     app.emit('serverevent', {
