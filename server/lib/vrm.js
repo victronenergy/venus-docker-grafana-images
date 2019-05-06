@@ -1,6 +1,7 @@
 const fetch = require('node-fetch')
 const fs = require('fs')
 const _ = require('lodash')
+const mqtt = require('mqtt')
 
 const apiUrl = 'https://vrmapi.victronenergy.com'
 
@@ -40,7 +41,7 @@ module.exports = function (app) {
       .then(response => {
         if (!_.isUndefined(response.success) && !response.success) {
           fail(response.errors)
-          app.emit('error', response.errors)
+          logger.error(response.errors)
           res.status(500).send()
         } else {
           const token = response['token']
@@ -57,13 +58,14 @@ module.exports = function (app) {
             .then(response => {
               if (!_.isUndefined(response.success) && !response.success) {
                 fail(response.errors.name || response.errors)
-                app.emit('error', response.errors.name || response.errors)
+                logger.error(response.errors.name || response.errors)
                 res.status(500).send()
               } else {
                 good('Token Created')
                 app.config.secrets.vrmToken = response.token
                 app.config.secrets.vrmTokenId = response.idAccessToken
                 app.config.secrets.vrmUserId = idUser
+                app.config.secrets.vrmUsername = req.body.username
                 fs.writeFile(
                   app.config.secretsLocation,
                   JSON.stringify(app.config.secrets, null, 2),
@@ -80,7 +82,7 @@ module.exports = function (app) {
               }
             })
             .catch(err => {
-              app.emit('error', err)
+              logger.error(err)
               fail(err.message)
               res.status(500).send()
             })
@@ -113,12 +115,41 @@ module.exports = function (app) {
         }
       })
       .catch(err => {
-        app.emit('error', err)
+        logger.error(err)
         fail(err.message)
       })
   }
 
+  function connectMQTT (address, port) {
+    return new Promise((resolve, reject) => {
+      fetch(`${apiUrl}/v2/auth/generatetoken`, {
+        method: 'POST',
+        headers: { 'X-Authorization': `Token ${app.config.secrets.vrmToken}` }
+      })
+        .then(response => response.json())
+        .then(response => {
+          if (_.isUndefined(response.token)) {
+            fail(response.errors)
+            reject(new Error('token request failed'))
+          } else {
+            const client = mqtt.connect(`mqtts:${address}:${port}`, {
+              rejectUnauthorized: false,
+              username: `vrmlogin_live_${app.config.secrets.vrmUsername}`,
+              password: response.token
+            })
+            resolve(client)
+          }
+        })
+        .catch(err => {
+          logger.error(err)
+          fail(err.message)
+          reject(err)
+        })
+    })
+  }
+
   return {
-    loadPortalIDs: loadPortalIDs
+    loadPortalIDs: loadPortalIDs,
+    connectMQTT: connectMQTT
   }
 }

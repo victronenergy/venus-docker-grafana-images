@@ -128,16 +128,25 @@ Loader.prototype.onMessage = function (client, topic, message) {
     portalStats.measurementCount++
 
     if (measurements.indexOf(measurement) === -1) {
+      this.logger.debug('got measurement %s = %j', measurement, json.value)
       measurements.push(measurement)
     }
 
     const name = this.getPortalName(id)
-    //this.logger.debug(`name: ${name}`)
+
+    if (!name && this.app.upnpDiscovered[id]) {
+      if (measurement === 'settings/Settings/SystemSetup/SystemName') {
+        this.logger.info(`name ${topic}`)
+        this.app.upnpDiscovered[id].name = json.value
+        this.sendKeepAlive(client, id) //reload everything since we have the name now
+      }
+      return
+    }
 
     this.app.influxdb.store(id, name, instanceNumber, measurement, json.value)
   } catch (e) {
-    this.app.emit('error', `can't record ${topic}: ${message}`)
-    this.app.emit('error', e)
+    this.logger.error(`can't record ${topic}: ${message}`)
+    this.logger.error(e)
   }
 }
 
@@ -209,23 +218,33 @@ Loader.prototype.settingsChanged = function (settings) {
 }
 
 Loader.prototype.connectUPNP = function (info) {
-  const client = this.connect(info.address, 1883, [info])
   this.upnpConnections[info.portalId] = {
-    client: client,
     name: info.name,
     address: info.address
   }
-  return client
+
+  this.connect(info.address, 1883, [info])
+    .then(client => {
+      this.upnpConnections[info.portalId].client = client
+    })
+    .catch(err => {
+      this.logger.error(err)
+    })
 }
 
 Loader.prototype.connectManual = function (info) {
-  const client = this.connect(info.address, 1883, [info])
   this.manualConnections[info.address] = {
-    client: client,
     name: info.name,
     address: info.address
   }
-  return client
+
+  this.connect(info.address, 1883, [info])
+    .then(client => {
+      this.manualConnections[info.address].client = client
+    })
+    .catch(err => {
+      this.logger.error(err)
+    })
 }
 
 Loader.prototype.connectVRM = function (portalInfos) {
@@ -234,58 +253,10 @@ Loader.prototype.connectVRM = function (portalInfos) {
   const enabled = portalInfos.filter(info => {
     return this.app.config.settings.vrm.disabled.indexOf(info.portalId) === -1
   })
-  return this.connect(address, port, enabled, true)
+  this.connect(address, port, enabled, true)
 }
 
-Loader.prototype.connect = function (address, port, portalInfos, isVrm = false) {
-  let client
-  if (isVrm) {
-    if (!this.vrmClient) {
-      this.logger.info('connecting to %s:%d', address, port)
-      client = mqtt.connect(`mqtts:${address}:${port}`, {
-        rejectUnauthorized: false,
-        username: 'scott@scottbender.net',
-        password: 'Pcgr8aPcBsHMzQ'
-      })
-      this.vrmClient = client
-      /*
-      client = mqtt.connect(`wss://mqtt.victronenergy.com/mqtt:443`, {
-        rejectUnauthorized: false,
-        wsOptions: {
-          headers: { 'X-Authorization': `Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImp0aSI6ImEzY2MxYzUxNDFkZWJhZWJiYmNhODM4ZjExMDQwZWQzIn0.eyJpc3MiOiJ2cm1hcGkudmljdHJvbmVuZXJneS5jb20iLCJhdWQiOiJodHRwczpcL1wvdnJtYXBpLnZpY3Ryb25lbmVyZ3kuY29tXC8iLCJpYXQiOjE1NTM5NjgyMTcsImV4cCI6MTU2OTUyMDIxNywianRpIjoiYTNjYzFjNTE0MWRlYmFlYmJiY2E4MzhmMTEwNDBlZDMiLCJ1aWQiOiIxODgxNCIsInRva2VuX3R5cGUiOiJyZW1lbWJlcl9tZSJ9.J1zqdsIAISp4rq6m36YuUWajaCWKyN1lKzCabFeJaXwcjejH33TaTxQUFmsFLYSK_9zXbcjpjyfulDmjkMvr7F_js1w0JTh_Dy5MmILYMAQeGvJz13LyQXLbcWgMeUG6-axUrOCbcA0EmaoFLWal_RO5OhYu7Np6CweQ-k_cjxz5sP7sBO4jfTz-At16GIZStMDj3ffvPqyme7wz4WDaIF034w-OdGlbwlnLzeK7wFqa5hmfRtxOJx04LWYtHmDj2lWZ8-t4qP-I8_h1Y9HkTnoLugJlHgt6-Y0kmsPc4pUSeCPAGRtfrMXku64-eHtubyV6VjFJDR7nt3V4z4LfjQ` }
-        }
-      })
-      */
-    } else {
-      const remaining = []
-      this.vrmSubscriptions.forEach(id => {
-        if (
-          !portalInfos.find(info => {
-            return info.portalId === id
-          })
-        ) {
-          this.logger.info('UnSubscribing to portalId %s', id)
-          this.vrmClient.unsubscribe(`N/${id}/+/#`)
-        } else {
-          remaining.push(id)
-        }
-      })
-      this.vrmSubscriptions = remaining
-      portalInfos.forEach(info => {
-        if (this.vrmSubscriptions.indexOf(info.portalId) === -1) {
-          this.logger.info('Subscribing to portalId %s', info.portalId)
-          this.vrmClient.subscribe(`N/${info.portalId}/+/#`)
-          this.vrmClient.publish(`R/${info.portalId}/system/0/Serial`)
-          this.vrmSubscriptions.push(info.portalId)
-        }
-      })
-      return this.vrmClient
-    }
-  } else {
-    this.logger.info('connecting to %s:%d', address, port)
-    client = mqtt.connect(`mqtt:${address}:${port}`)
-  }
-
+Loader.prototype.setupClient = function (client, address, portalInfos, isVrm) {
   client.on('connect', () => {
     this.logger.info('connected to %s', address)
     if (portalInfos.length === 1 && !portalInfos[0].portalId) {
@@ -315,7 +286,7 @@ Loader.prototype.connect = function (address, port, portalInfos, isVrm = false) 
   )
 
   client.on('error', error => {
-    this.app.emit('error', error)
+    this.logger.error(error)
   })
 
   client.on('close', () => {
@@ -334,8 +305,67 @@ Loader.prototype.connect = function (address, port, portalInfos, isVrm = false) 
   client.on('reconnect', () => {
     this.logger.debug('connection to %s reconnect', address)
   })
+}
 
-  return client
+Loader.prototype.connect = function (address, port, portalInfos, isVrm = false) {
+  return new Promise((resolve, reject) => {
+    let client
+    if (isVrm) {
+      if (this.vrmConnecting) {
+        this.vrmConnecting.then(client => {
+          this.connect(address, port, portalInfos, isVrm)
+            .then(resolve)
+            .catch(reject)
+        })
+        return
+      }
+
+      if (!this.vrmClient) {
+        this.logger.info('connecting to %s:%d', address, port)
+        this.vrmConnecting = this.app.vrm.connectMQTT(address, port)
+        this.vrmConnecting
+          .then(client => {
+            this.vrmClient = client
+            this.vrmConnecting = null
+            this.setupClient(client, address, portalInfos, isVrm)
+            resolve(client)
+          })
+          .catch(err => {
+            this.vrmConnecting = null
+            reject(err)
+          })
+      } else {
+        const remaining = []
+        this.vrmSubscriptions.forEach(id => {
+          if (
+            !portalInfos.find(info => {
+              return info.portalId === id
+            })
+          ) {
+            this.logger.info('UnSubscribing to portalId %s', id)
+            this.vrmClient.unsubscribe(`N/${id}/+/#`)
+          } else {
+            remaining.push(id)
+          }
+        })
+        this.vrmSubscriptions = remaining
+        portalInfos.forEach(info => {
+          if (this.vrmSubscriptions.indexOf(info.portalId) === -1) {
+            this.logger.info('Subscribing to portalId %s', info.portalId)
+            this.vrmClient.subscribe(`N/${info.portalId}/+/#`)
+            this.vrmClient.publish(`R/${info.portalId}/system/0/Serial`)
+            this.vrmSubscriptions.push(info.portalId)
+          }
+        })
+        resolve(this.vrmClient)
+      }
+    } else {
+      this.logger.info('connecting to %s:%d', address, port)
+      client = mqtt.connect(`mqtt:${address}:${port}`)
+      this.setupClient(client, address, portalInfos, isVrm)
+      resolve(client)
+    }
+  })
 }
 
 Loader.prototype.collectStats = function () {
