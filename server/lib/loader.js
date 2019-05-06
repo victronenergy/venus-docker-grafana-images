@@ -3,7 +3,7 @@ const mqtt = require('mqtt')
 
 const collectStatsInterval = 5
 const vrmAddress = 'mqtt.victronenergy.com'
-const keepAliveInterval = 59.0
+const keepAliveInterval = 62.0
 
 function Loader (app) {
   this.app = app
@@ -51,7 +51,10 @@ Loader.prototype.start = function () {
   )
 }
 
-Loader.prototype.getPortalName = function (id) {
+Loader.prototype.getPortalName = function (client, id) {
+  if (client.deviceName) {
+    return client.deviceName
+  }
   if (this.app.config.settings.upnp.enabled) {
     const info = this.app.upnpDiscovered[id]
     if (info && info.name) {
@@ -101,7 +104,13 @@ Loader.prototype.onMessage = function (client, topic, message) {
 
     if (client.venusNeedsID && measurement === 'system/Serial') {
       this.logger.info('Detected portalId %s', json.value)
+      client.subscribe(
+        `N/${json.value}/settings/0/Settings/SystemSetup/SystemName`
+      )
       client.subscribe(`N/${json.value}/+/#`)
+      client.publish(
+        `R/${json.value}/settings/0/Settings/SystemSetup/SystemName`
+      )
       client.publish(`R/${json.value}/system/0/Serial`)
       client.venusNeedsID = false
       client.portalId = json.value
@@ -132,13 +141,13 @@ Loader.prototype.onMessage = function (client, topic, message) {
       measurements.push(measurement)
     }
 
-    const name = this.getPortalName(id)
+    const name = this.getPortalName(client, id)
 
-    if (!name && this.app.upnpDiscovered[id]) {
+    if (!name && client !== this.vrmClient) {
       if (measurement === 'settings/Settings/SystemSetup/SystemName') {
-        this.logger.info(`name ${topic}`)
+        this.logger.debug('got name %s : %j', topic, json.value)
+        client.deviceName = name
         this.app.upnpDiscovered[id].name = json.value
-        this.sendKeepAlive(client, id) //reload everything since we have the name now
       }
       return
     }
@@ -275,7 +284,13 @@ Loader.prototype.setupClient = function (client, address, portalInfos, isVrm) {
       }
       portalInfos.forEach(info => {
         this.logger.info('Subscribing to portalId %s', info.portalId)
+        client.subscribe(
+          `N/${info.portalId}/settings/0/Settings/SystemSetup/SystemName`
+        )
         client.subscribe(`N/${info.portalId}/+/#`)
+        client.publish(
+          `R/${info.portalId}/settings/0/Settings/SystemSetup/SystemName`
+        )
         client.publish(`R/${info.portalId}/system/0/Serial`)
         if (isVrm) {
           this.vrmSubscriptions.push(info.portalId)
