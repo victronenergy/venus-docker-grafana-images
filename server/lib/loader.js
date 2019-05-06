@@ -248,12 +248,14 @@ Loader.prototype.connectManual = function (info) {
 }
 
 Loader.prototype.connectVRM = function (portalInfos) {
-  const address = this.app.config.settings.vrm.address || vrmAddress
-  const port = this.app.config.settings.vrm.port || 8883
-  const enabled = portalInfos.filter(info => {
-    return this.app.config.settings.vrm.disabled.indexOf(info.portalId) === -1
-  })
-  this.connect(address, port, enabled, true)
+  if (this.app.config.secrets.vrmToken) {
+    const address = this.app.config.settings.vrm.address || vrmAddress
+    const port = this.app.config.settings.vrm.port || 8883
+    const enabled = portalInfos.filter(info => {
+      return this.app.config.settings.vrm.disabled.indexOf(info.portalId) === -1
+    })
+    this.connect(address, port, enabled, true)
+  }
 }
 
 Loader.prototype.setupClient = function (client, address, portalInfos, isVrm) {
@@ -264,6 +266,13 @@ Loader.prototype.setupClient = function (client, address, portalInfos, isVrm) {
       client.subscribe('N/+/+/#')
       client.venusNeedsID = true
     } else {
+      if (isVrm) {
+        portalInfos = this.app.vrmDiscovered.filter(info => {
+          return (
+            this.app.config.settings.vrm.disabled.indexOf(info.portalId) === -1
+          )
+        })
+      }
       portalInfos.forEach(info => {
         this.logger.info('Subscribing to portalId %s', info.portalId)
         client.subscribe(`N/${info.portalId}/+/#`)
@@ -279,6 +288,9 @@ Loader.prototype.setupClient = function (client, address, portalInfos, isVrm) {
       this.keepAlive.bind(this, client),
       keepAliveInterval * 1000
     )
+    if (isVrm) {
+      this.vrmConnecting = null
+    }
   })
 
   client.on('message', (topic, message) =>
@@ -312,11 +324,14 @@ Loader.prototype.connect = function (address, port, portalInfos, isVrm = false) 
     let client
     if (isVrm) {
       if (this.vrmConnecting) {
+        resolve(null)
+        /*
+        this.logger.info('Already connecting, wait...')
         this.vrmConnecting.then(client => {
           this.connect(address, port, portalInfos, isVrm)
             .then(resolve)
             .catch(reject)
-        })
+        })*/
         return
       }
 
@@ -325,9 +340,8 @@ Loader.prototype.connect = function (address, port, portalInfos, isVrm = false) 
         this.vrmConnecting = this.app.vrm.connectMQTT(address, port)
         this.vrmConnecting
           .then(client => {
-            this.vrmClient = client
-            this.vrmConnecting = null
             this.setupClient(client, address, portalInfos, isVrm)
+            this.vrmClient = client
             resolve(client)
           })
           .catch(err => {
