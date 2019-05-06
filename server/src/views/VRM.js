@@ -135,6 +135,8 @@ class VRM extends Component {
           </FormGroup>
           <VRMDetails
         value={this.state.settings[this.state.type]}
+        vrmDiscovered={this.props.vrmDiscovered}
+        vrmStatus={this.props.vrmStatus}
           onChange={this.handleOptionChange}
           />
               </Form>
@@ -291,7 +293,7 @@ class VRMDetails extends Component {
   }
   
   render() {
-   return (
+    return (
        <div>
 
      {!this.state.hasToken && (
