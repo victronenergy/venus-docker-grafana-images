@@ -20,7 +20,7 @@ function InfluxDB (app) {
       this.connect()
         .then(() => {})
         .catch(err => {
-          app.emit('error', err)
+          this.logger.error(err)
           const interval = setInterval(() => {
             app.influxdb
               .connect()
@@ -28,7 +28,7 @@ function InfluxDB (app) {
                 clearInterval(interval)
               })
               .catch(err => {
-                app.emit('error', err)
+                this.logger.error(err)
               })
           }, 5000)
         })
@@ -84,7 +84,7 @@ InfluxDB.prototype.connect = function () {
         } else {
           client.createDatabase(database).then(result => {
             this.info('Created InfluxDb database ' + database)
-            this.setRetentionPolicy(this.client, retention)
+            this.setRetentionPolicy(client, retention)
               .then(() => {
                 resolve(client)
               })

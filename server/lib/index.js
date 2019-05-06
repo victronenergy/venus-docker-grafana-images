@@ -15,6 +15,9 @@ function Server (opts) {
   const app = express()
   this.app = app
 
+  app.__argv = process.argv.slice(2)
+  app.argv = require('minimist')(app.__argv)
+
   const format = winston.format.printf((info, oppts) => {
     return `[${info.level}] [${info.label}] ${info.message} ${info.stack || ''}`
   })
@@ -57,9 +60,15 @@ function Server (opts) {
     res.redirect('/admin')
   })
 
+  let configDir = app.argv.c
+
+  if (!configDir) {
+    configDir = '/config'
+  }
+
   app.config = {
-    configLocation: '/config/config.json',
-    secretsLocation: '/config/secrets.json'
+    configLocation: path.join(configDir, 'config.json'),
+    secretsLocation: path.join(configDir, 'secrets.json')
   }
 
   try {
@@ -93,6 +102,10 @@ function Server (opts) {
     )
   }
 
+  if (app.config.settings.debug) {
+    app.rootLogger.level = 'debug'
+  }
+
   try {
     const contents = fs.readFileSync(app.config.secretsLocation)
     app.config.secrets = JSON.parse(contents)
@@ -118,11 +131,6 @@ Server.prototype.start = function () {
       app.lastServerEvents[event.type] = event
     }
   })
-  app.on('error', err => {
-    //console.error(err)
-    app.logger.error(err)
-  })
-
   app.upnpDiscovered = {}
   app.emit('serverevent', {
     type: 'UPNPDISCOVERY',
@@ -180,7 +188,7 @@ Server.prototype.start = function () {
       app.emit('settingsChanged', app.config.settings)
     })
     .catch(err => {
-      app.emit('error', err)
+      app.logger.error(err)
       const interval = setInterval(() => {
         app.influxdb
           .connect()
@@ -190,7 +198,7 @@ Server.prototype.start = function () {
             app.emit('settingsChanged', app.config.settings)
           })
           .catch(err => {
-            app.emit('error', err)
+            app.logger.error(err)
           })
       }, 5000)
     })

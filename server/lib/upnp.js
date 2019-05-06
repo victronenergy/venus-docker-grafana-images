@@ -29,7 +29,7 @@ module.exports = function (app) {
             .then(text => {
               parseXml(text, (err, result) => {
                 if (err) {
-                  app.emit('error', err)
+                  logger.error(err)
                 } else {
                   try {
                     const info = {
@@ -43,13 +43,13 @@ module.exports = function (app) {
                     )
                     app.emit('upnpDiscovered', info)
                   } catch (err) {
-                    app.emit('error', err)
+                    logger.error(err)
                   }
                 }
               })
             })
             .catch(err => {
-              app.emit('error', err)
+              logger.error(err)
             })
         }
       })
