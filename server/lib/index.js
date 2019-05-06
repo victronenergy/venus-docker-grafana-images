@@ -209,11 +209,6 @@ Server.prototype.start = function () {
 
   function settingsChanged (settings) {
     if (settings.upnp.enabled && app.upnp.isRunning() === false) {
-      app.upnpDiscovered = []
-      app.emit('serverevent', {
-        type: 'UPNPDISCOVERY',
-        data: []
-      })
       if (!app.argv['external-upnp']) {
         app.upnp.start()
       }
@@ -225,19 +220,23 @@ Server.prototype.start = function () {
     }
 
     if (settings.vrm.enabled && _.keys(app.vrmDiscovered).length === 0) {
+      /*
       app.vrmDiscovered = []
       app.emit('serverevent', {
         type: 'VRMDISCOVERY',
         data: []
       })
+      */
       app.vrm.loadPortalIDs()
     }
     if (!settings.vrm.enabled && _.keys(app.vrmDiscovered).length > 0) {
+      /*
       app.vrmDiscovered = []
       app.emit('serverevent', {
         type: 'VRMDISCOVERY',
         data: []
       })
+      */
     }
 
     app.emit('serverevent', {
@@ -293,7 +292,7 @@ Server.prototype.stop = function (cb) {
 
         const that = this
         this.app.server.close(function () {
-          this.app.debug('Server closed')
+          that.app.debug('Server closed')
           that.app.started = false
           cb && cb()
           resolve(that)
