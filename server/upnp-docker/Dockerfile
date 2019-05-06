@@ -1,11 +1,7 @@
 FROM node:8
 
-EXPOSE 8088/TCP
+RUN npm install -g --unsafe-perm venus-docker-grafana-server
 
-COPY venus-server-2.0.0.tgz /
-
-RUN npm install -g --unsafe-perm /venus-server-2.0.0.tgz
-
-WORKDIR "/usr/local/lib/node_modules/venus-server"
+WORKDIR "/usr/local/lib/node_modules/venus-docker-grafana-server"
 
 CMD [ "node", "lib/upnp.js" ]
