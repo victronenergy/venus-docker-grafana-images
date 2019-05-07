@@ -14,6 +14,7 @@ import Discovery from '../../views/Discovery'
 import VRM from '../../views/VRM'
 import Manual from '../../views/Manual'
 import Trouble from '../../views/Trouble'
+import Security from '../../views/Security'
 import InfluxDB from '../../views/InfluxDB'
 
 import {
@@ -68,6 +69,11 @@ class Full extends Component {
                   path='/trouble'
                   name='Troubleshooting'
                   component={loginOrOriginal(Trouble, true)}
+                />
+                <Route
+                  path='/settings/security'
+                  name='Security'
+                  component={loginOrOriginal(Security, true)}
                 />
                 <Redirect from='/' to='/dashboard' />
               </Switch>

@@ -176,6 +176,10 @@ const mapStateToProps = state => {
             url: '/settings/manual'
           },
           {
+            name: 'Security',
+            url: '/settings/security'
+          },
+          {
             name: 'InfluxDB',
             url: '/settings/influxdb'
           }

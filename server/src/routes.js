@@ -5,6 +5,7 @@ const routes = {
   '/settings/vrm': 'VRM',
   '/settings/manual': 'Manual',
   '/settings/influxdb': 'InfluxDB',
+  '/settings/security': 'Security',
   '/trouble': 'Troubleshooting'
 }
 export default routes

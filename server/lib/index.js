@@ -7,6 +7,8 @@ const Loader = require('./loader')
 const InfluxDB = require('./influxdb')
 const winston = require('winston')
 const LogStorageTransport = require('./transport')
+const auth = require('basic-auth')
+const compare = require('tsscmp')
 
 const logMessages = []
 
@@ -18,6 +20,28 @@ function Server (opts) {
   const bodyParser = require('body-parser')
   const app = express()
   this.app = app
+
+  app.use((req, res, next) => {
+    const credentials = auth(req)
+    let login = this.app.config.secrets.login
+    if (!login) {
+      login = {
+        username: 'admin',
+        password: 'admin'
+      }
+    }
+
+    if (
+      !credentials ||
+      compare(credentials.name, login.username) === false ||
+      compare(credentials.pass, login.password) == false
+    ) {
+      res.statusCode = 401
+      res.setHeader('WWW-Authenticate', 'Basic realm="example"')
+      res.status(401).send()
+    }
+    next()
+  })
 
   app.__argv = process.argv.slice(2)
   app.argv = require('minimist')(app.__argv)

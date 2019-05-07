@@ -66,3 +66,6 @@ lib/**/*.test.js*
 packages
 
 venus-server-*.tgz
+
+./config.json*
+./secrets.json*

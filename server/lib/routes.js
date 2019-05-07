@@ -33,6 +33,31 @@ module.exports = function (app) {
     )
   })
 
+  app.post('/security', (req, res, next) => {
+    if (
+      req.body.username &&
+      req.body.username.length > 0 &&
+      req.body.password &&
+      req.body.password.length > 0
+    ) {
+      app.config.secrets.login = req.body
+      fs.writeFile(
+        app.config.secretsLocation,
+        JSON.stringify(app.config.secrets, null, 2),
+        err => {
+          if (err) {
+            app.logger.error(err)
+            res.status(500).send('Unable to write secrets file')
+          } else {
+            res.send()
+          }
+        }
+      )
+    } else {
+      res.status(400).send('Please enter a Username and Password')
+    }
+  })
+
   app.get('/log', (req, res, next) => {
     res.json(app.logTransport.entries)
   })
