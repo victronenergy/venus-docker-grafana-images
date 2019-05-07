@@ -186,6 +186,11 @@ const mapStateToProps = state => {
         url: '/trouble',
         icon: 'icon-info'
       },
+      {
+        name: 'Grafana',
+        url: `http://${window.location.hostname}:3000/`,
+        icon: 'icon-graph'
+      }
     ]
   }
 
