@@ -30,8 +30,7 @@ Loader.prototype.start = function () {
     const upnp = this.app.config.settings.upnp
     if (
       !this.upnpConnections[info.portalId] &&
-      (_.isUndefined(upnp.disabled) ||
-        upnp.disabled.indexOf(info.portalId) === -1)
+      upnp.enabledPortalIds.indexOf(info.portalId) !== -1
     ) {
       this.connectUPNP(info)
     }
@@ -173,7 +172,10 @@ Loader.prototype.close = function (connectionInfo) {
 Loader.prototype.settingsChanged = function (settings) {
   //close existing connections if upnp disabled or a device is disabled
   _.keys(this.upnpConnections).forEach(id => {
-    if (!settings.upnp.enabled || settings.upnp.disabled.indexOf(id) !== -1) {
+    if (
+      !settings.upnp.enabled ||
+      settings.upnp.enabledPortalIds.indexOf(id) === -1
+    ) {
       this.close(this.upnpConnections[id])
       delete this.upnpConnections[id]
     }
@@ -184,7 +186,7 @@ Loader.prototype.settingsChanged = function (settings) {
     _.keys(this.app.upnpDiscovered).forEach(id => {
       if (
         !this.upnpConnections[id] &&
-        settings.upnp.disabled.indexOf(id) === -1
+        settings.upnp.enabledPortalIds.indexOf(id) !== -1
       ) {
         this.connectUPNP(this.app.upnpDiscovered[id])
       }
@@ -264,7 +266,10 @@ Loader.prototype.connectVRM = function (portalInfos) {
     const address = this.app.config.settings.vrm.address || vrmAddress
     const port = this.app.config.settings.vrm.port || 8883
     const enabled = portalInfos.filter(info => {
-      return this.app.config.settings.vrm.disabled.indexOf(info.portalId) === -1
+      return (
+        this.app.config.settings.vrm.enabledPortalIds.indexOf(info.portalId) !==
+        -1
+      )
     })
     this.connect(address, port, enabled, true)
   }
@@ -281,7 +286,9 @@ Loader.prototype.setupClient = function (client, address, portalInfos, isVrm) {
       if (isVrm) {
         portalInfos = this.app.vrmDiscovered.filter(info => {
           return (
-            this.app.config.settings.vrm.disabled.indexOf(info.portalId) === -1
+            this.app.config.settings.vrm.enabledPortalIds.indexOf(
+              info.portalId
+            ) !== -1
           )
         })
       }

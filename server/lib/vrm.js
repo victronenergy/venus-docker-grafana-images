@@ -107,9 +107,25 @@ module.exports = function (app) {
           fail(response.errors)
         } else {
           const devices = response.records.map(record => {
-            return { portalId: record.identifier, name: record.name }
+            return { portalId: String(record.identifier), name: record.name }
           })
           logger.debug('got response %j', response)
+
+          if (!_.isUndefined(app.config.settings.vrm.disabled)) {
+            //convert from old method of storing the disabled ids
+            const enabledPortalIds = devices.map(info => {
+              return app.config.settings.vrm.disabled.indexOf(info.portalId) ===
+                -1
+                ? info.portalId
+                : null
+            })
+            app.config.settings.vrm.enabledPortalIds = enabledPortalIds.filter(
+              id => id != null
+            )
+            delete app.config.settings.vrm.disabled
+            app.saveSettings()
+          }
+
           app.emit('vrmDiscovered', devices)
           good('Installations Retrieved')
         }

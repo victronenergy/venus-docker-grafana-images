@@ -106,11 +106,11 @@ function Server (opts) {
     app.config.settings = {
       upnp: {
         enabled: false,
-        disabled: []
+        enabledPortalIds: []
       },
       vrm: {
         enabled: false,
-        disabled: []
+        enabledPortalIds: []
       },
       manual: {
         enabled: false,
@@ -145,6 +145,21 @@ function Server (opts) {
 
   app.started = false
   _.merge(app, opts)
+
+  app.saveSettings = cb => {
+    fs.writeFile(
+      app.config.configLocation,
+      JSON.stringify(app.config.settings, null, 2),
+      err => {
+        if (err) {
+          app.logger.error(err)
+        }
+        if (cb) {
+          cb(err)
+        }
+      }
+    )
+  }
 }
 
 module.exports = Server

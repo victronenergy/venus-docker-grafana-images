@@ -9,6 +9,9 @@ module.exports = function (app) {
         res.status(500).send('Unable to read config file')
       } else {
         const config = JSON.parse(contents)
+        if (_.isUndefined(config.upnp.enabledPortalIds)) {
+          config.upnp.enabledPortalIds = []
+        }
         config.vrm.hasToken = !_.isUndefined(app.config.secrets.vrmToken)
         res.json(config)
       }

@@ -62,12 +62,8 @@ class VRM extends Component {
           : event.target.value
 
     if ( event.target.name === 'portalDisabled' ) {
-      let list = this.state.settings[this.state.type].disabled
-      if ( !list ) {
-        list = []
-        this.state.settings[this.state.type].disabled = list
-      }
-      if ( value ) {
+      let list = this.state.settings[this.state.type].enabledPortalIds
+      if ( !value ) {
         let idx = list.indexOf(event.target.id)
         if ( idx != -1 ) {
           list.splice(idx, 1)
@@ -189,6 +185,16 @@ class VRMList extends Component {
       credentials: 'include'
     })
   }
+  handleEnableAll(event) {
+    if ( event.target.checked ) {
+      this.props.value.enabledPortalIds = this.props.discovered.map(info => {
+        return info.portalId
+      })
+    } else {
+      this.props.value.enabledPortalIds = []
+    }
+    this.setState({...this.state})
+  }
   render() {
     return (
         <div>
@@ -197,7 +203,22 @@ class VRMList extends Component {
               <tr>
                 <th>Name</th>
                 <th>Portal ID</th>
-                <th>Enabled</th>
+                <th>
+                 <Label className='switch switch-text switch-primary'>
+                   <Input type='checkbox'
+                          id='enableAll'
+                          name='enabledAll'
+                          className='switch-input'
+                          checked={this.props.value.enabledPortalIds.length > 0}
+                          onChange={(event) => { this.handleEnableAll(event)}}
+                   />
+                   <span className='switch-label'
+                         data-on='On'
+                         data-off='Off'
+                   />
+                   <span className='switch-handle' />
+                 </Label>
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -215,7 +236,7 @@ class VRMList extends Component {
                                 name='portalDisabled'
                                 className='switch-input'
                                 onChange={this.props.onChange}
-              checked={!this.props.value.disabled || this.props.value.disabled.indexOf(device.portalId) == -1}
+              checked={this.props.value.enabledPortalIds.indexOf(device.portalId) !== -1}
                               />
                               <span
                                 className='switch-label'

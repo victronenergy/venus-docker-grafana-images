@@ -62,12 +62,8 @@ class Discovery extends Component {
           : event.target.value
 
     if ( event.target.name === 'portalDisabled' ) {
-      let list = this.state.settings[this.state.type].disabled
-      if ( !list ) {
-        list = []
-        this.state.settings[this.state.type].disabled = list
-      }
-      if ( value ) {
+      let list = this.state.settings[this.state.type].enabledPortalIds
+      if ( !value ) {
         let idx = list.indexOf(event.target.id)
         if ( idx != -1 ) {
           list.splice(idx, 1)
@@ -160,13 +156,38 @@ class Discovery extends Component {
 }
 
 class DiscoveredList extends Component {
+  handleEnableAll(event) {
+    if ( event.target.checked ) {
+      this.props.value.enabledPortalIds = this.props.discovered
+    } else {
+      this.props.value.enabledPortalIds = []
+    }
+    this.setState({...this.state})
+  }
+  
   render() {
     return (
       <Table hover responsive bordered striped size="sm">
             <thead>
                 <tr>
                 <th>Portal ID</th>
-                <th>Enabled</th>
+                <th>
+                  <Label className='switch switch-text switch-primary'>
+                   <Input type='checkbox'
+                          id='enableAll'
+                          name='enabledAll'
+                          className='switch-input'
+                          checked={this.props.value.enabledPortalIds.length > 0}
+
+                          onChange={(event) => { this.handleEnableAll(event)}}
+                   />
+                   <span className='switch-label'
+                         data-on='On'
+                         data-off='Off'
+                   />
+                   <span className='switch-handle' />
+                 </Label>
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -183,7 +204,7 @@ class DiscoveredList extends Component {
                                 name='portalDisabled'
                                 className='switch-input'
                                 onChange={this.props.onChange}
-              checked={!this.props.value.disabled || this.props.value.disabled.indexOf(id) == -1}
+              checked={this.props.value.enabledPortalIds.indexOf(id) !== -1}
                               />
                               <span
                                 className='switch-label'
