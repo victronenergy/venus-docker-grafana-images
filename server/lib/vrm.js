@@ -18,7 +18,7 @@ module.exports = function (app) {
     logger.error(msg)
   }
 
-  app.post('/requestToken', (req, res, next) => {
+  app.post('/admin-api/requestToken', (req, res, next) => {
     if (!req.body.tokenName || req.body.tokenName.length === 0) {
       good('Please enter a token name')
       res.status(500).send()
