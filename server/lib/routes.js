@@ -12,6 +12,9 @@ module.exports = function (app) {
         if (_.isUndefined(config.upnp.enabledPortalIds)) {
           config.upnp.enabledPortalIds = []
         }
+        if (_.isUndefined(config.vrm.enabledPortalIds)) {
+          config.vrm.enabledPortalIds = []
+        }
         config.vrm.hasToken = !_.isUndefined(app.config.secrets.vrmToken)
         res.json(config)
       }

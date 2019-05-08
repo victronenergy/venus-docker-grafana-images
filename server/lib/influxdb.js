@@ -26,7 +26,7 @@ function InfluxDB (app) {
       return
     }
 
-    const { host, port, database } = settings.influxdb
+    const { host, port, database, retention } = settings.influxdb
 
     if (
       this.host !== host ||
@@ -49,6 +49,10 @@ function InfluxDB (app) {
               })
           }, 5000)
         })
+    } else if (!_.isUndefined(this.retention) && retention != this.retention) {
+      this.client.then(client => {
+        this.setRetentionPolicy(client, retention)
+      })
     }
   })
 }
@@ -62,11 +66,19 @@ InfluxDB.prototype.setRetentionPolicy = function (client, retention) {
   return new Promise((resolve, reject) => {
     client
       .createRetentionPolicy('venus_default', opts)
-      .then(resolve)
+      .then(() => {
+        this.logger.info(`Set retention policy to ${retention}`)
+        this.retention = retention
+        resolve()
+      })
       .catch(err => {
         client
           .alterRetentionPolicy('venus_default', opts)
-          .then(resolve)
+          .then(() => {
+            this.retention = retention
+            this.logger.info(`Set retention policy to ${retention}`)
+            resolve()
+          })
           .catch(reject)
       })
   })

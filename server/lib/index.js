@@ -57,7 +57,8 @@ function Server (opts) {
       winston.format.splat(),
       winston.format.timestamp(),
       winston.format.json()
-    )
+    ),
+    handleExceptions: true
   })
 
   app.rootLogger = winston.createLogger({
@@ -68,12 +69,12 @@ function Server (opts) {
           winston.format.errors({ stack: true }),
           winston.format.splat(),
           format
-        )
+        ),
+        handleExceptions: true
       }),
       this.app.logTransport
     ]
   })
-  app.rootLogger.exceptions.handle()
   app.rootLogger.exitOnError = false
 
   this.app.logger = this.app.rootLogger.child({ label: 'venus-server' })
@@ -293,6 +294,7 @@ Server.prototype.start = function () {
   return new Promise((resolve, reject) => {
     createServer(app, function (err, server) {
       if (err) {
+        console.log(err)
         reject(err)
         return
       }
