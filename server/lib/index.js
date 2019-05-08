@@ -44,6 +44,21 @@ function Server (opts) {
     }
   })
 
+  const logRequestStart = (req, res, next) => {
+    app.logger.trace(`${req.method} ${req.originalUrl}`)
+
+    res.on('finish', () => {
+      app.logger.trace(
+        `${res.statusCode} ${res.statusMessage}; ${res.get('Content-Length') ||
+          0}b sent`
+      )
+    })
+
+    next()
+  }
+
+  app.use(logRequestStart)
+
   app.__argv = process.argv.slice(2)
   app.argv = require('minimist')(app.__argv)
 
@@ -306,7 +321,7 @@ Server.prototype.start = function () {
       require('./routes')(app)
 
       const primaryPort = 8088
-      server.listen(primaryPort, function () {
+      server.listen(primaryPort, function (err) {
         app.logger.info(`running at 0.0.0.0:${primaryPort}`)
         app.started = true
         resolve(self)
