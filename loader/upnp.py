@@ -61,23 +61,24 @@ def find():
     for (addr, url) in found:
         try:
             resp = requests.get(url)
+            if resp.status_code == 200:
+                doc = untangle.parse(resp.text)
+                try:
+                    model = doc.root.device.modelName.cdata
+                    if model == 'CCGX':
+                        name = doc.root.device.friendlyName.cdata
+                        try:
+                            #FIXME: make sure we don't add duplicates
+                            id = doc.root.device.ve_X_VrmPortalId.cdata
+                            logging.info('Found %s' % name)
+                            portalIds.append((id, addr[0]))
+                            print (resp.text)
+                        except AttributeError:
+                            logging.error('Device %s needs updated, no portal id' % name)
+                except:
+                    pass
         except:
             pass
-        if resp.status_code == 200:
-            doc = untangle.parse(resp.text)
-            try:
-                model = doc.root.device.modelName.cdata
-                if model == 'CCGX':
-                    name = doc.root.device.friendlyName.cdata
-                    try:
-                        #FIXME: make sure we don't add duplicates
-                        id = doc.root.device.ve_X_VrmPortalId.cdata
-                        logging.info('Found %s' % name)
-                        portalIds.append((id, addr[0]))
-                    except AttributeError:
-                        logging.error('Device %s needs updated, no portal id' % name)
-            except:
-                pass
             
     return portalIds
 

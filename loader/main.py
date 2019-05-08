@@ -37,15 +37,26 @@ import os
 
 api_url = 'https://vrmapi.victronenergy.com'
 keep_alive_interval = 62.0
+collect_stats_interval = 5
+stats_file = '/tmp/venus_stats.json'
+
+device_stats = {}
+device_measurements = {}
+totalCount = 0
+lastIntervalCount = 0
 
 def on_connect(mqttc, obj, flags, rc):
     if rc is 0:
         try:
             logging.info('Connected to MQTT at %s' % obj['address'])
-            for id in obj['portalIDs']:
-                logging.info('Subscribing to portalId %s' % id)
-                mqttc.subscribe('N/%s/+/#' % id)
-                mqttc.publish('R/%s/system/0/Serial' % id)
+            if not 'portalIDs' in obj:
+                logging.info('Detecting portal id...')
+                mqttc.subscribe('N/+/+/#')
+            else:
+                for id in obj['portalIDs']:
+                    logging.info('Subscribing to portalId %s' % id)
+                    mqttc.subscribe('N/%s/+/#' % id)
+                    mqttc.publish('R/%s/system/0/Serial' % id)
             
             logging.debug('Starting timer %d' % keep_alive_interval)
             obj['timer'] = threading.Timer(keep_alive_interval, keep_alive, [mqttc, obj])
@@ -72,10 +83,38 @@ def on_message(mqttc, obj, msg):
     instance_num = split[3]
     split.pop(3)
     measurement = '/'.join(split[2:])
+    value = data['value']
+
+    try:
+        if not 'portalIDs' in obj and measurement == 'system/Serial':
+            logging.info('Found portalId %s' % value)
+            obj['portalIDs'] = [ value ]
+            mqttc.subscribe('N/%s/+/#' % value)
+            mqttc.publish('R/%s/system/0/Serial' % value)
+
+        global totalCount, device_stats, device_measurements
+        
+        totalCount = totalCount + 1
+        if id in device_stats:
+            portalStats = device_stats[id]
+            measurements = device_measurements[id]
+        else:
+            portalStats = {
+                'measurementCount': 0,
+                'measurementRate': 0,
+                'lastIntervalCount': 0
+            }
+            device_stats[id] = portalStats
+            measurements = []
+            device_measurements[id] = measurements
+
+        portalStats['measurementCount'] = portalStats['measurementCount'] + 1
+
+        if not measurement in measurements:
+            measurements.append(measurement)
 
     #print('id: %s inum: %s measurement: %s value: %s' % (id, instance_num, measurement, data['value']))
-    try:
-        influxdb_provider.store(id, instance_num, measurement, data['value'])
+        influxdb_provider.store(id, instance_num, measurement, value)
     except (KeyboardInterrupt, SystemExit):
         raise
     except:
@@ -84,6 +123,36 @@ def on_message(mqttc, obj, msg):
         
         #print('message: ' + msg.topic + ' ' + str(msg.qos) + ' ' + decoded)
 
+def collect_stats():
+    global totalCount, device_stats, device_measurements, lastIntervalCount
+
+    logging.debug('Collecting stats...')
+
+    try:
+        measurementCount = 0
+        for id, stats in device_stats.items():
+            stats['measurementRate'] = (stats['measurementCount'] - stats['lastIntervalCount']) / collect_stats_interval
+            stats['lastIntervalCount'] = stats['measurementCount']
+            measurementCount += len(device_measurements[id])
+
+        stats = {
+            'measurementRate': (totalCount - lastIntervalCount) / collect_stats_interval,
+            'measurementCount': measurementCount,
+            'deviceStatistics': device_stats
+        }
+
+        lastIntervalCount = totalCount
+
+        f = open(stats_file, 'w')
+        f.write(json.dumps(stats))
+        f.close()
+    except (KeyboardInterrupt, SystemExit):
+        raise
+    except:
+        logging.error('Unexpected error:', sys.exc_info())
+        traceback.print_exc()
+        
+    threading.Timer(collect_stats_interval, collect_stats).start()
 
 def on_subscribe(mqttc, obj, mid, granted_qos):
     print('Subscribed: ' + str(mid) + ' ' + str(granted_qos))
@@ -95,7 +164,7 @@ def on_log(mqttc, obj, level, string):
 def keep_alive(mqttc, server):
     try:
         for id in server['portalIDs']:
-            logging.info('Sending keepailve to %s (%s)' % (server['address'], id))
+            logging.debug('Sending keepailve to %s (%s)' % (server['address'], id))
             res = mqttc.publish('R/%s/system/0/Serial' % id)
             
             #print('kp res: ' + str(res))
@@ -234,6 +303,8 @@ def main():
         logging.info('Connecting to MQTT at %s...' % address)
         client.connect_async(address, server['port'], 60)
 
+    threading.Timer(collect_stats_interval, collect_stats).start()
+        
     client.loop_forever()
 
 if __name__=='__main__':
