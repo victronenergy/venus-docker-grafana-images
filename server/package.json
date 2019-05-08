@@ -14,7 +14,7 @@
     "clean": "rimraf ./build",
     "start-web": "webpack-dev-server --progress --colors --inline --env.dev",
     "create-release": "github-create-release --owner victronenergy --repository venus-docker-grafana-images",
-    "release": "git tag -d v$npm_package_version && git tag v$npm_package_version && git push --tags && git push && npm run create-release"
+    "release": "git tag -d v$npm_package_version; git tag v$npm_package_version && git push --tags && git push && npm run create-release"
   },
   "lint-staged": {
     "linters": {
