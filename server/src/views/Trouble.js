@@ -19,7 +19,7 @@ import {
 } from 'reactstrap'
 
 function fetchLog () {
-  fetch(`/log`, {
+  fetch(`/admin-api/log`, {
     credentials: 'include'
   })
     .then(response => response.json())
@@ -44,7 +44,7 @@ class Trouble extends Component {
   }
 
   handleDebug (event) {
-    fetch(`/debug`, {
+    fetch(`/admin-api/debug`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json'

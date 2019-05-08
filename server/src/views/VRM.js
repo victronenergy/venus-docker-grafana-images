@@ -19,7 +19,7 @@ import {
 } from 'reactstrap'
 
 function fetchSettings () {
-  fetch(`/config`, {
+  fetch(`/admin-api/config`, {
     credentials: 'include'
   })
     .then(response => response.json())
@@ -79,7 +79,7 @@ class VRM extends Component {
 
   handleSaveConfig () {
     this.setState({saving: true})
-    fetch(`/config`, {
+    fetch(`/admin-api/config`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json'
@@ -180,7 +180,7 @@ class PasswordInput extends Component {
 
 class VRMList extends Component {
   handleRefresh() {
-    fetch(`/refreshVRM`, {
+    fetch(`/admin-api/refreshVRM`, {
       method: 'PUT',
       credentials: 'include'
     })
@@ -277,7 +277,7 @@ class VRMDetails extends Component {
 
   handleLogin(event) {
     this.setState({ loggingIn: true})
-    fetch('/requestToken', {
+    fetch('/admin-api/requestToken', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'

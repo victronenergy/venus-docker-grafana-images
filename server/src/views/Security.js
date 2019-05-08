@@ -45,7 +45,7 @@ class Security extends Component {
 
   handleSaveConfig () {
     this.setState({saving: true})
-    fetch(`/security`, {
+    fetch(`/admin-api/security`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'

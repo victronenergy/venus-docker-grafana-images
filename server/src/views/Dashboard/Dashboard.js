@@ -52,7 +52,7 @@ const Dashboard = props => {
                       return (
                         <li key={portalId}>
                           <i className={iconClass} />
-                          <span className='title'>{portalId}</span>
+                          <span className='title'>{deviceStats.name}</span>
                           <span className='value'>
                             {' '}
                             {deviceStats.measurementRate}{' '}

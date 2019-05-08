@@ -21,7 +21,7 @@ function Server (opts) {
   const app = express()
   this.app = app
 
-  app.use((req, res, next) => {
+  const adminCrefentials = (req, res, next) => {
     const credentials = auth(req)
     let login = this.app.config.secrets.login
     if (!login) {
@@ -42,13 +42,15 @@ function Server (opts) {
     } else {
       next()
     }
-  })
+  }
+
+  app.use(['/admin-api/*', '/admin/*'], adminCrefentials)
 
   const logRequestStart = (req, res, next) => {
-    app.logger.trace(`${req.method} ${req.originalUrl}`)
+    app.logger.silly(`${req.method} ${req.originalUrl}`)
 
     res.on('finish', () => {
-      app.logger.trace(
+      app.logger.silly(
         `${res.statusCode} ${res.statusMessage}; ${res.get('Content-Length') ||
           0}b sent`
       )
