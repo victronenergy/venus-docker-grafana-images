@@ -1,5 +1,6 @@
 const _ = require('lodash')
 const mqtt = require('mqtt')
+const ignoredMeasurements = require('./ignoredMeasurements')
 
 const collectStatsInterval = 5
 const vrmAddress = 'mqtt.victronenergy.com'
@@ -95,6 +96,10 @@ Loader.prototype.onMessage = function (client, topic, message) {
   split.splice(0, 2)
   split.splice(1, 1)
   const measurement = split.join('/')
+
+  if (ignoredMeasurements.find(path => measurement.startsWith(path))) {
+    return
+  }
 
   try {
     const json = JSON.parse(message)
