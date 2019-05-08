@@ -39,8 +39,9 @@ function Server (opts) {
       res.statusCode = 401
       res.setHeader('WWW-Authenticate', 'Basic realm="example"')
       res.status(401).send()
+    } else {
+      next()
     }
-    next()
   })
 
   app.__argv = process.argv.slice(2)
@@ -72,6 +73,8 @@ function Server (opts) {
       this.app.logTransport
     ]
   })
+  app.rootLogger.exceptions.handle()
+  app.rootLogger.exitOnError = false
 
   this.app.logger = this.app.rootLogger.child({ label: 'venus-server' })
   this.app.getLogger = label => {
