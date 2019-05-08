@@ -19,7 +19,7 @@ import {
 } from 'reactstrap'
 
 function fetchSettings () {
-  fetch(`/config`, {
+  fetch(`/admin-api/config`, {
     credentials: 'include'
   })
     .then(response => response.json())
@@ -83,7 +83,7 @@ class Manual extends Component {
 
   handleSaveConfig () {
     this.setState({saving: true})
-    fetch(`/config`, {
+    fetch(`/admin-api/config`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json'

@@ -2,7 +2,7 @@ const fs = require('fs')
 const _ = require('lodash')
 
 module.exports = function (app) {
-  app.get('/config', (req, res, next) => {
+  app.get('/admin-api/config', (req, res, next) => {
     fs.readFile(app.config.configLocation, (err, contents) => {
       if (err) {
         app.logger.error(err)
@@ -21,7 +21,7 @@ module.exports = function (app) {
     })
   })
 
-  app.put('/config', (req, res, next) => {
+  app.put('/admin-api/config', (req, res, next) => {
     fs.writeFile(
       app.config.configLocation,
       JSON.stringify(req.body, null, 2),
@@ -39,7 +39,7 @@ module.exports = function (app) {
     )
   })
 
-  app.post('/security', (req, res, next) => {
+  app.post('/admin-api/security', (req, res, next) => {
     if (
       req.body.username &&
       req.body.username.length > 0 &&
@@ -64,7 +64,7 @@ module.exports = function (app) {
     }
   })
 
-  app.get('/log', (req, res, next) => {
+  app.get('/admin-api/log', (req, res, next) => {
     res.json(app.logTransport.entries)
   })
 
@@ -79,7 +79,7 @@ module.exports = function (app) {
     res.send()
   })
 
-  app.put('/refreshVRM', (req, res, next) => {
+  app.put('/admin-api/refreshVRM', (req, res, next) => {
     app.vrmDiscovered = []
     app.emit('serverevent', {
       type: 'VRMDISCOVERY',
@@ -89,7 +89,7 @@ module.exports = function (app) {
     res.status(200).send()
   })
 
-  app.put('/debug', (req, res, next) => {
+  app.put('/admin-api/debug', (req, res, next) => {
     app.rootLogger.level = req.body.value ? 'debug' : 'info'
     app.emit('serverevent', {
       type: 'DEBUG',
