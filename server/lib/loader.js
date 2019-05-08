@@ -121,6 +121,8 @@ Loader.prototype.onMessage = function (client, topic, message) {
       return
     }
 
+    const name = this.getPortalName(client, id)
+
     let portalStats
     let measurements
     this.totalCount++
@@ -131,21 +133,21 @@ Loader.prototype.onMessage = function (client, topic, message) {
       portalStats = {
         measurementCount: 0,
         measurementRate: 0,
-        lastIntervalCount: 0
+        lastIntervalCount: 0,
+        name: name || id
       }
       this.deviceStats[id] = portalStats
       measurements = []
       this.deviceMeasurements[id] = measurements
     }
 
+    portalStats.lastMeasurement = new Date()
     portalStats.measurementCount++
 
     if (measurements.indexOf(measurement) === -1) {
       this.logger.debug('got measurement %s = %j', measurement, json.value)
       measurements.push(measurement)
     }
-
-    const name = this.getPortalName(client, id)
 
     if (!name && client !== this.vrmClient) {
       if (measurement === 'settings/Settings/SystemSetup/SystemName') {
@@ -154,6 +156,7 @@ Loader.prototype.onMessage = function (client, topic, message) {
         } else {
           this.logger.info('Detected name %s : %j', id, json.value)
           client.deviceName = json.value
+          portalStats.name = client.deviceName
         }
       }
       return
@@ -432,6 +435,8 @@ Loader.prototype.collectStats = function () {
   }
 
   this.lastIntervalCount = this.totalCount
+
+  this.app.lastStats = stats
 
   this.app.emit('serverevent', {
     type: 'SERVERSTATISTICS',
