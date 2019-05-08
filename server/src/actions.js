@@ -5,99 +5,6 @@ const authFetch = (url, options) => {
   })
 }
 
-export function logout () {
-  return dispatch => {
-    dispatch({
-      type: 'LOGOUT_REQUESTED'
-    })
-    authFetch('/signalk/v1/auth/logout', {
-      method: 'PUT'
-    })
-      .then(response => {
-        if (!response.ok) {
-          throw new Error(response.statusText)
-        }
-        return response
-      })
-      .then(response => {
-        dispatch({
-          type: 'LOGOUT_SUCCESS'
-        })
-      })
-      .catch(error => {
-        dispatch({
-          type: 'LOGOUT_FAILED',
-          data: error
-        })
-      })
-      .then(() => {
-        fetchLoginStatus(dispatch)
-      })
-  }
-}
-
-export function login (dispatch, username, password, callback) {
-  var payload = {
-    username: username,
-    password: password
-  }
-  authFetch('/signalk/v1/auth/login', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(payload)
-  })
-    .then(response => {
-      if (response.status != 200) {
-        response.text().then(text => {
-          dispatch({
-            type: 'LOGIN_FAILURE',
-            data: text
-          })
-          callback(text)
-        })
-      } else {
-        return response.json()
-      }
-    })
-    .then(response => {
-      if (response) {
-        fetchAllData(dispatch)
-        dispatch({
-          type: 'LOGIN_SUCCESS'
-        })
-        callback(null)
-      }
-    })
-    .catch(function (error) {
-      console.log(error)
-    })
-}
-
-export function enableSecurity (dispatch, userId, password, callback) {
-  var payload = {
-    userId: userId,
-    password: password,
-    type: 'admin'
-  }
-  fetch('/enableSecurity', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(payload)
-  }).then(response => {
-    if (response.status != 200) {
-      response.text().then(text => {
-        callback(text)
-      })
-    } else {
-      callback(null)
-    }
-  })
-}
-
 export function restart () {
   return dispatch => {
     if (confirm('Are you sure you want to restart?')) {
@@ -121,11 +28,6 @@ export const buildFetchAction = (endpoint, type) => dispatch =>
         data
       })
     )
-
-export const fetchLoginStatus = buildFetchAction('/loginStatus', 'RECEIVE_LOGIN_STATUS')
-
-export function fetchAllData (dispatch) {
-}
 
 export function openServerEventsConnection (dispatch) {
   const proto = window.location.protocol == 'https:' ? 'wss' : 'ws'
