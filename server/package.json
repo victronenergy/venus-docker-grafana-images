@@ -16,7 +16,7 @@
   },
   "lint-staged": {
     "linters": {
-      "lib/**/*.js*": [
+      "lib/*.js*": [
         "prettier-standard",
         "git add"
       ],
