@@ -90,6 +90,35 @@ module.exports = function (app) {
       })
   })
 
+  app.post('/admin-api/vrmLogout', (req, res, next) => {
+    logger.info(`logging out of VRM`)
+
+    const scopy = JSON.parse(JSON.stringify(app.config.secrets))
+    delete scopy.vrmToken
+    delete scopy.vrmTokenId
+    delete scopy.vrmUserId
+    delete scopy.vrmUsername
+
+    fs.writeFile(
+      app.config.secretsLocation,
+      JSON.stringify(scopy, null, 2),
+      err => {
+        if (err) {
+          logger.error(err)
+          fail(err.message)
+          res.status(500).send('Unable to write secrets file')
+        } else {
+          good('Logged Out')
+          delete app.config.secrets.vrmToken
+          delete app.config.secrets.vrmTokenId
+          delete app.config.secrets.vrmUserId
+          delete app.config.secrets.vrmUsername
+          res.send()
+        }
+      }
+    )
+  })
+
   function loadPortalIDs () {
     if (!app.config.secrets.vrmToken) {
       fail('Please login')
