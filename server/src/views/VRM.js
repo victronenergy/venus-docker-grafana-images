@@ -271,7 +271,7 @@ class VRMDetails extends Component {
       hasToken: props.value.hasToken,
       username: '',
       password: '',
-      tokenName: ''
+      tokenName: `grafana token ${new Date().toISOString()}`
     }
   }
 
@@ -386,7 +386,7 @@ class VRMDetails extends Component {
         <Col md='2'>
          <Label htmlFor='tokenName'>Token Name</Label>
         </Col>
-        <Col xs='12' md='3'>
+        <Col xs='12' md='6'>
           <Input
             type='text'
             name='tokenName'
