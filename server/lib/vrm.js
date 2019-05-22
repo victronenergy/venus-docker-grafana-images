@@ -148,11 +148,14 @@ module.exports = function (app) {
             fail(response.errors)
             reject(new Error('token request failed'))
           } else {
+            const token = response.token
             const client = mqtt.connect(`mqtts:${address}:${port}`, {
               rejectUnauthorized: false,
               username: `vrmlogin_live_${app.config.secrets.vrmUsername}`,
-              password: response.token
+              password: token,
+              reconnectPeriod: 0
             })
+            good('Connected')
             resolve(client)
           }
         })
