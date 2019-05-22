@@ -305,6 +305,32 @@ class VRMDetails extends Component {
     //this.setState({hasToken: true})
   }
 
+  handleLogout(event) {
+    this.setState({ loggingOut: true})
+    fetch('/admin-api/vrmLogout', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
+      .then(response => {
+        if ( response.status == 200 ) {
+          return response
+        } else {
+          this.setState({ loggingOut: false })
+          throw Error('bad response')
+        }
+      })
+      .then(response => response.text())
+      .then(response => {
+        this.setState({ loggingOut: false, hasToken:false })
+      })
+      .catch(err => {
+        this.setState({ loggingOut: false })
+      })
+    //this.setState({hasToken: true})
+  }
+
   onChange(event) {
     const value =
       event.target.type === 'checkbox'
@@ -382,6 +408,28 @@ class VRMDetails extends Component {
        </p>
       </Col>
       </FormGroup>
+
+      {this.state.hasToken && (
+        <FormGroup row>
+        <Col md='2'>
+        </Col>
+        <Col xs='12' md='3'>
+          <Button
+        size='sm'
+        color='primary'
+        onClick={() => { this.handleLogout() }}
+          >
+          <i
+            className={
+                        this.state.loggingOut
+                        ? 'fa fa-spinner fa-spin'
+                        : 'fa fa-lock'
+                       }
+          /> Logout
+        </Button>
+          </Col>
+          </FormGroup>
+      )}
       <VRMList
         value={this.props.value}
         discovered={this.props.vrmDiscovered}

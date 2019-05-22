@@ -19,14 +19,12 @@ import InfluxDB from '../../views/InfluxDB'
 
 import {
   fetchLoginStatus,
-  fetchAllData,
   openServerEventsConnection
 } from '../../actions'
 
 class Full extends Component {
   componentDidMount () {
     const { dispatch } = this.props
-    fetchAllData(dispatch)
     openServerEventsConnection(dispatch)
   }
 

@@ -284,11 +284,6 @@ Loader.prototype.connectVRM = function (portalInfos) {
       //this.logger.error(err)
       this.vrmClient = null
       this.vrmConnecting = null
-      /*
-        setTimeout(() => {
-          this.connectVRM(portalInfos)
-        }, 5000)
-        */
     })
   }
 }
