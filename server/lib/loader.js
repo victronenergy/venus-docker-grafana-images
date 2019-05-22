@@ -205,8 +205,9 @@ Loader.prototype.settingsChanged = function (settings) {
     this.connectVRM(this.app.vrmDiscovered)
   } else if (this.vrmClient) {
     this.logger.info('closing vrm connection')
-    this.vrmClient.end(true)
+    const client = this.vrmClient
     this.vrmClient = null
+    client.end(true)
     this.vrmSubscriptions = []
     this.app.emit('vrmStatus', {
       status: 'success',
@@ -279,7 +280,16 @@ Loader.prototype.connectVRM = function (portalInfos) {
         -1
       )
     })
-    this.connect(address, port, enabled, true)
+    this.connect(address, port, enabled, true).catch(err => {
+      //this.logger.error(err)
+      this.vrmClient = null
+      this.vrmConnecting = null
+      /*
+        setTimeout(() => {
+          this.connectVRM(portalInfos)
+        }, 5000)
+        */
+    })
   }
 }
 
@@ -317,10 +327,13 @@ Loader.prototype.setupClient = function (client, address, portalInfos, isVrm) {
         }
       })
     }
-    client.keepAlive = setInterval(
-      this.keepAlive.bind(this, client),
-      keepAliveInterval * 1000
-    )
+    if (!client.venusKeepAlive) {
+      this.logger.debug(`starting keep alive timer`)
+      client.venusKeepAlive = setInterval(
+        this.keepAlive.bind(this, client),
+        keepAliveInterval * 1000
+      )
+    }
     if (isVrm) {
       this.vrmConnecting = null
     }
@@ -336,16 +349,32 @@ Loader.prototype.setupClient = function (client, address, portalInfos, isVrm) {
 
   client.on('close', () => {
     this.logger.debug('connection to %s closed', address)
+
+    if (client.venusKeepAlive) {
+      this.logger.debug('clearing keep alive')
+      clearInterval(client.venusKeepAlive)
+      delete client.venusKeepAlive
+    }
+
+    if (isVrm) {
+      this.vrmSubscriptions = []
+      if (
+        !_.isUndefined(this.vrmClient) &&
+        this.app.config.settings.vrm.enabled
+      ) {
+        this.vrmClient = null
+        this.vrmConnecting = null
+        setTimeout(() => {
+          this.connectVRM(this.app.vrmDiscovered)
+        }, 5000)
+      }
+    }
   })
   client.on('offline', () => {
     this.logger.debug('connection to %s offline', address)
   })
   client.on('end', () => {
     this.logger.info('connection to %s ended', address)
-    if (client.keepAlive) {
-      clearInterval(client.keepAlive)
-      delete client.keepAlive
-    }
   })
   client.on('reconnect', () => {
     this.logger.debug('connection to %s reconnect', address)
