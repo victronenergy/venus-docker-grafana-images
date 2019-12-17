@@ -10,7 +10,7 @@ function Loader (app) {
   this.app = app
   this.upnpConnections = {}
   this.manualConnections = {}
-  this.vrmClient = null
+  this.vrmConnections = {}
 
   this.deviceStats = {}
   this.deviceMeasurements = {}
@@ -75,9 +75,7 @@ Loader.prototype.sendKeepAlive = function (client, portalId) {
 }
 
 Loader.prototype.keepAlive = function (client) {
-  if (client === this.vrmClient) {
-    this.vrmSubscriptions.forEach(id => this.sendKeepAlive(client, id))
-  } else if (client.portalId) {
+  if (client.portalId) {
     this.sendKeepAlive(client, client.portalId)
   }
 }
@@ -149,7 +147,7 @@ Loader.prototype.onMessage = function (client, topic, message) {
       measurements.push(measurement)
     }
 
-    if (!name && client !== this.vrmClient) {
+    if (!name && !client.isVrm) {
       if (measurement === 'settings/Settings/SystemSetup/SystemName') {
         if (json.value.length === 0) {
           client.deviceName = id
@@ -201,18 +199,19 @@ Loader.prototype.settingsChanged = function (settings) {
     })
   }
 
-  if (settings.vrm.enabled) {
-    this.connectVRM(this.app.vrmDiscovered)
-  } else if (this.vrmClient) {
-    this.logger.info('closing vrm connection')
-    const client = this.vrmClient
-    this.vrmClient = null
-    client.end(true)
-    this.vrmSubscriptions = []
+  if (_.keys(this.vrmConnections).length > 0) {
+    _.values(this.vrmConnections).forEach(info => {
+      this.logger.info(`closing vrm connection for ${info.portalId}`)
+      info.client.end(true)
+    })
+    this.vrmConnections = {}
     this.app.emit('vrmStatus', {
       status: 'success',
-      message: 'Connection Closed'
+      message: 'Connections Closed'
     })
+  }
+  if (settings.vrm.enabled) {
+    this.connectVRM(this.app.vrmDiscovered)
   }
 
   if (settings.manual.enabled) {
@@ -270,20 +269,43 @@ Loader.prototype.connectManual = function (info) {
     })
 }
 
+function calculateVRMBrokerURL (portalId) {
+  let sum = 0
+  const lowered = portalId.toLowerCase()
+  for (let i = 0; i < lowered.length; i++) {
+    sum = sum + lowered.charCodeAt(i)
+  }
+  return `mqtt${sum % 128}.victronenergy.com`
+}
+
 Loader.prototype.connectVRM = function (portalInfos) {
   if (this.app.config.secrets.vrmToken) {
-    const address = this.app.config.settings.vrm.address || vrmAddress
-    const port = this.app.config.settings.vrm.port || 8883
     const enabled = portalInfos.filter(info => {
       return (
         this.app.config.settings.vrm.enabledPortalIds.indexOf(info.portalId) !==
         -1
       )
     })
-    this.connect(address, port, enabled, true).catch(err => {
-      //this.logger.error(err)
-      this.vrmClient = null
-      this.vrmConnecting = null
+
+    enabled.forEach(info => {
+      const port = 8883
+      const address = calculateVRMBrokerURL(info.portalId)
+
+      if (!this.vrmConnections[info.portalId]) {
+        this.vrmConnections[info.portalId] = {
+          address: address,
+          portalId: info.portalId
+        }
+
+        this.connect(address, port, [info], true)
+          .then(client => {
+            this.vrmConnections[info.portalId].client = client
+          })
+          .catch(err => {
+            delete this.vrmConnections[info.portalId]
+            this.logger.error(err)
+          })
+      }
     })
   }
 }
@@ -296,15 +318,6 @@ Loader.prototype.setupClient = function (client, address, portalInfos, isVrm) {
       client.subscribe('N/+/+/#')
       client.venusNeedsID = true
     } else {
-      if (isVrm) {
-        portalInfos = this.app.vrmDiscovered.filter(info => {
-          return (
-            this.app.config.settings.vrm.enabledPortalIds.indexOf(
-              info.portalId
-            ) !== -1
-          )
-        })
-      }
       portalInfos.forEach(info => {
         this.logger.info('Subscribing to portalId %s', info.portalId)
         client.subscribe(
@@ -315,11 +328,7 @@ Loader.prototype.setupClient = function (client, address, portalInfos, isVrm) {
           `R/${info.portalId}/settings/0/Settings/SystemSetup/SystemName`
         )
         client.publish(`R/${info.portalId}/system/0/Serial`)
-        if (isVrm) {
-          this.vrmSubscriptions.push(info.portalId)
-        } else {
-          client.portalId = info.portalId
-        }
+        client.portalId = info.portalId
       })
     }
     if (!client.venusKeepAlive) {
@@ -328,9 +337,6 @@ Loader.prototype.setupClient = function (client, address, portalInfos, isVrm) {
         this.keepAlive.bind(this, client),
         keepAliveInterval * 1000
       )
-    }
-    if (isVrm) {
-      this.vrmConnecting = null
     }
   })
 
@@ -352,16 +358,27 @@ Loader.prototype.setupClient = function (client, address, portalInfos, isVrm) {
     }
 
     if (isVrm) {
-      this.vrmSubscriptions = []
-      if (
-        !_.isUndefined(this.vrmClient) &&
-        this.app.config.settings.vrm.enabled
-      ) {
-        this.vrmClient = null
-        this.vrmConnecting = null
-        setTimeout(() => {
-          this.connectVRM(this.app.vrmDiscovered)
-        }, 5000)
+      delete this.vrmConnections[client.portalId]
+
+      if (!this.vrmReconnectInterval) {
+        this.vrmReconnectInterval = setInterval(() => {
+          const enabled = this.app.vrmDiscovered.filter(info => {
+            return (
+              this.app.config.settings.vrm.enabledPortalIds.indexOf(
+                info.portalId
+              ) !== -1
+            )
+          })
+
+          if (enabled.length == _.keys(this.vrmConnections).length) {
+            this.logger.info('done trying vrm reconnect')
+            clearInterval(this.vrmReconnectInterval)
+            delete this.vrmReconnectInterval
+          } else {
+            this.logger.info('trying to reconnect to vrm...')
+            this.connectVRM(this.app.vrmDiscovered)
+          }
+        }, 10000)
       }
     }
   })
@@ -379,59 +396,18 @@ Loader.prototype.setupClient = function (client, address, portalInfos, isVrm) {
 Loader.prototype.connect = function (address, port, portalInfos, isVrm = false) {
   return new Promise((resolve, reject) => {
     let client
+    this.logger.info('connecting to %s:%d', address, port)
     if (isVrm) {
-      if (this.vrmConnecting) {
-        resolve(null)
-        /*
-        this.logger.info('Already connecting, wait...')
-        this.vrmConnecting.then(client => {
-          this.connect(address, port, portalInfos, isVrm)
-            .then(resolve)
-            .catch(reject)
-        })*/
-        return
-      }
-
-      if (!this.vrmClient) {
-        this.logger.info('connecting to %s:%d', address, port)
-        this.vrmConnecting = this.app.vrm.connectMQTT(address, port)
-        this.vrmConnecting
-          .then(client => {
-            this.setupClient(client, address, portalInfos, isVrm)
-            this.vrmClient = client
-            resolve(client)
-          })
-          .catch(err => {
-            this.vrmConnecting = null
-            reject(err)
-          })
-      } else {
-        const remaining = []
-        this.vrmSubscriptions.forEach(id => {
-          if (
-            !portalInfos.find(info => {
-              return info.portalId === id
-            })
-          ) {
-            this.logger.info('UnSubscribing to portalId %s', id)
-            this.vrmClient.unsubscribe(`N/${id}/+/#`)
-          } else {
-            remaining.push(id)
-          }
+      const vrmConnecting = this.app.vrm.connectMQTT(address, port)
+      vrmConnecting
+        .then(client => {
+          this.setupClient(client, address, portalInfos, isVrm)
+          resolve(client)
         })
-        this.vrmSubscriptions = remaining
-        portalInfos.forEach(info => {
-          if (this.vrmSubscriptions.indexOf(info.portalId) === -1) {
-            this.logger.info('Subscribing to portalId %s', info.portalId)
-            this.vrmClient.subscribe(`N/${info.portalId}/+/#`)
-            this.vrmClient.publish(`R/${info.portalId}/system/0/Serial`)
-            this.vrmSubscriptions.push(info.portalId)
-          }
+        .catch(err => {
+          reject(err)
         })
-        resolve(this.vrmClient)
-      }
     } else {
-      this.logger.info('connecting to %s:%d', address, port)
       client = mqtt.connect(`mqtt:${address}:${port}`)
       this.setupClient(client, address, portalInfos, isVrm)
       resolve(client)
