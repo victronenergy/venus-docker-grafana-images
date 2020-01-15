@@ -1,7 +1,18 @@
+ARCH=$1
+if [ "$ARCH" == "" ]; then
+  echo "specify arch: $ARCHS"
+  exit 1
+fi
+
+VER=$2
+
+if [ "$VER" == "" ]; then
+  echo "specify version"
+  exit 1
+fi
+
 REPO=victronenergy
 TARGET=venus-docker-grafana
-ARCH=amd64
-VER=latest
 BUILD_OPTS=--no-cache
 TAG_LATEST=0
 ARCHS="armhf amd64"
