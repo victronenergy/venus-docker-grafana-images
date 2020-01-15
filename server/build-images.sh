@@ -13,8 +13,8 @@ if [ "$VER" == "" ]; then
   exit 1
 fi
 
-REPO=sbender9
-TARGET=victron-server
+REPO=victronenergy
+TARGET=venus-docker-server
 BUILD_OPTS=--no-cache
 TAG_LATEST=0
 
