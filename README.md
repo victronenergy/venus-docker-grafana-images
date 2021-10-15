@@ -4,7 +4,7 @@ See https://github.com/victronenergy/venus-docker-grafana for usage and a lot of
 This repo has two docker images:
 
 - Grafana, the Grafana Dashboard, code in `/Grafana`; very minimal
-- Server, the dashboard as well as data-transmitter, both written in nodejs. The data-transmitter function is the service that subscribes to MQTT and pushes the data into Influx.
+- Server, the dashboard as well as data-transmitter, both written in nodejs.
 
 ## Server
 
@@ -14,6 +14,11 @@ venus-docker-grafana-server, a nodejs package, by downloading it from www.npmjs.
 Thereafter it starts it, by starting [venus-server](https://github.com/victronenergy/venus-docker-grafana-images/blob/master/server/bin/venus-server).
 
 To learn more, read there.
+
+Functions of the Server
+  - Dashboard, running at 0.0.0.0:8088
+  - API, also used by a JSON panel in Grafana, at 0.0.0.0:8088/grafana-api
+  - data-transmitter
 
 ## Some info to help trouble shooting
 
