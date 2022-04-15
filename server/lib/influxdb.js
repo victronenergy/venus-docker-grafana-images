@@ -85,17 +85,21 @@ InfluxDB.prototype.setRetentionPolicy = function (client, retention) {
 }
 
 InfluxDB.prototype.connect = function () {
-  const { host, port, database, retention } = this.app.config.settings.influxdb
+  const { host, port, database, retention, username, password } = this.app.config.settings.influxdb
   this.host = host
   this.port = port
   this.database = database
+  this.username = username
+  this.password = password
   this.info(`Attempting connection to ${host}:${port}/${database}`)
   this.client = new Promise((resolve, reject) => {
     const client = new Influx.InfluxDB({
       host: host,
       port: port,
       protocol: 'http',
-      database: database
+      database: database,
+      username: username,
+      password: password
     })
 
     this.connected = true
