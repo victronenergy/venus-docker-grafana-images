@@ -66,6 +66,7 @@ lib/**/*.test.js*
 packages
 
 venus-server-*.tgz
+venus-docker-grafana-server-*.tgz
 
 ./config.json*
 ./secrets.json*
