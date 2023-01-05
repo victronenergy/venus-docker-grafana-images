@@ -34,7 +34,7 @@
   "author": "Scott Bender <scott@scottbender.net>",
   "license": "MIT",
   "engines": {
-    "node": "16"
+    "node": "18"
   },
   "dependencies": {
     "basic-auth": "^2.0.1",
@@ -89,7 +89,7 @@
     "react-router-dom": "4.2.2",
     "react-transition-group": "2.2.1",
     "reactstrap": "^5.0.0",
-    "redux": "^3.7.2",
+    "redux": "^4",
     "redux-thunk": "^2.2.0",
     "rimraf": "2.6.2",
     "sass-loader": "6.0.6",
