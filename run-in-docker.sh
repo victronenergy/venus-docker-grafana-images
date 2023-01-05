@@ -1,0 +1,1 @@
+sudo docker run -it -p 8088:8088 cernoch/venus-docker-server
