@@ -1,10 +1,6 @@
-ARCH=$1
-if [ "$ARCH" == "" ]; then
-  echo "specify arch: $ARCHS"
-  exit 1
-fi
+PLATFORMS="linux/armhf,linux/arm64,linux/amd64"
 
-VER=$2
+VER=$1
 
 if [ "$VER" == "" ]; then
   echo "specify version"
@@ -15,17 +11,7 @@ REPO=victronenergy
 TARGET=venus-docker-grafana
 BUILD_OPTS=--no-cache
 TAG_LATEST=0
-ARCHS="armhf amd64"
 
-ARCH_TAGS=""
-for arch in $ARCHS
-do
-    ARCH_TAGS="$ARCH_TAGS $REPO/$TARGET:${arch}-${VER}"
-done
+TAG="$REPO/$TARGET:${VER}"
 
-docker build ${BUILD_OPTS} $PLATFORM -t $REPO/$TARGET:${ARCH}-${VER} .
-docker push $REPO/$TARGET:${ARCH}-${VER}
-
-docker manifest create $REPO/$TARGET:$VER $ARCH_TAGS
-docker manifest push $REPO/$TARGET:$VER
-rm -rf ~/.docker/manifests/docker.io_${REPO}_${TARGET}-${VER}
+docker buildx build ${BUILD_OPTS} --platform $PLATFORMS -t ${TAG} --push .
