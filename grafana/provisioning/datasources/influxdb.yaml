@@ -1,0 +1,9 @@
+apiVersion: 1
+
+datasources:
+  - name: InfluxDB
+    uid: datasource-influxdb
+    type: influxdb
+    access: proxy
+    database: venus
+    url: http://influxdb:8086

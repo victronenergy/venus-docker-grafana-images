@@ -10,8 +10,7 @@ fi
 REPO=victronenergy
 TARGET=venus-docker-grafana
 BUILD_OPTS=--no-cache
-TAG_LATEST=0
 
 TAG="$REPO/$TARGET:${VER}"
 
-docker buildx build ${BUILD_OPTS} --platform $PLATFORMS -t ${TAG} --push .
+docker buildx build ${BUILD_OPTS} --pull --progress=plain --platform $PLATFORMS -t ${TAG} --push .

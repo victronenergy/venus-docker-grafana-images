@@ -1,19 +1,8 @@
-FROM grafana/grafana
+FROM grafana/grafana:9.3.6
 
-COPY initial /initial
+COPY provisioning /provisioning
 COPY entrypoint.sh /
 
-#RUN ["grafana-cli",  "plugins", "install", "simpod-json-datasource" ]
-
-ARG GF_INSTALL_PLUGINS="simpod-json-datasource"
-
-RUN if [ ! -z "${GF_INSTALL_PLUGINS}" ]; then \
-    OLDIFS=$IFS; \
-        IFS=','; \
-    for plugin in ${GF_INSTALL_PLUGINS}; do \
-        IFS=$OLDIFS; \
-        grafana-cli --pluginsDir "$GF_PATHS_PLUGINS" plugins install ${plugin}; \
-    done; \
-fi
+USER grafana
 
 ENTRYPOINT ["/entrypoint.sh"]
