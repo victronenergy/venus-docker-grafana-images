@@ -8,11 +8,9 @@ if [ "$VER" == "" ]; then
 fi
 
 REPO=victronenergy
-TARGET=venus-docker-server
+TARGET=venus-docker-upnp
 BUILD_OPTS=--no-cache
-TAG_LATEST=0
 
 TAG="$REPO/$TARGET:${VER}"
 
-cd docker
-docker buildx build ${BUILD_OPTS} --platform $PLATFORMS -t ${TAG} --push .
+docker buildx build ${BUILD_OPTS} --pull --progress=plain --platform $PLATFORMS -t ${TAG} --push .
