@@ -1,0 +1,7 @@
+node_modules
+.git
+.vscode
+.DS_Store
+config.json
+secrets.json
+config

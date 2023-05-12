@@ -1,4 +1,4 @@
-const restrictedGlobals = require("eslint-restricted-globals")
+const restrictedGlobals = require('confusing-browser-globals');
 
 module.exports = {
   env: {
@@ -7,15 +7,17 @@ module.exports = {
   },
   extends: [
     "eslint:recommended",
+    "plugin:react/recommended",
+    "plugin:react/jsx-runtime",
   ],
   parserOptions: {
-      "ecmaVersion": 2018,
-      "sourceType": "module",
-      "ecmaFeatures": {
-        "jsx": true
-      }
+    "ecmaVersion": 2018,
+    "sourceType": "module",
+    "ecmaFeatures": {
+      "jsx": true
+    }
   },
-   plugins: ["node"],
+  plugins: ["node"],
   rules: {
     "no-console": "off",
     "no-undef": "off",
@@ -53,6 +55,6 @@ module.exports = {
     "prefer-const": "error",
     "no-var": "error",
     "no-invalid-this": "error",
-    // "no-path-concat": "error",
+    "no-path-concat": "error",
   },
 }
