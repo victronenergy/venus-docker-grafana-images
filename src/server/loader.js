@@ -62,7 +62,7 @@ Loader.prototype.getPortalName = function (client, id) {
     }
   }
   if (this.app.config.settings.vrm.enabled) {
-    info = this.app.vrmDiscovered.find(info => info.portalId === id)
+    const info = this.app.vrmDiscovered.find(info => info.portalId === id)
     if (info && info.name) {
       return info.name
     }
@@ -187,7 +187,7 @@ Loader.prototype.settingsChanged = function (settings) {
     }
   })
 
-  // open connections for upnpn devices that were previously disabled
+  // open connections for upnp devices that were previously disabled
   if (settings.upnp.enabled) {
     _.keys(this.app.upnpDiscovered).forEach(id => {
       if (
@@ -332,7 +332,7 @@ Loader.prototype.setupClient = function (client, address, portalInfos, isVrm) {
       })
     }
     if (!client.venusKeepAlive) {
-      this.logger.debug(`starting keep alive timer`)
+      this.logger.debug('starting keep alive timer')
       client.venusKeepAlive = setInterval(
         this.keepAlive.bind(this, client),
         keepAliveInterval * 1000
@@ -370,7 +370,7 @@ Loader.prototype.setupClient = function (client, address, portalInfos, isVrm) {
             )
           })
 
-          if (enabled.length == _.keys(this.vrmConnections).length) {
+          if (enabled.length === _.keys(this.vrmConnections).length) {
             this.logger.info('done trying vrm reconnect')
             clearInterval(this.vrmReconnectInterval)
             delete this.vrmReconnectInterval
@@ -393,7 +393,12 @@ Loader.prototype.setupClient = function (client, address, portalInfos, isVrm) {
   })
 }
 
-Loader.prototype.connect = function (address, port, portalInfos, isVrm = false) {
+Loader.prototype.connect = function (
+  address,
+  port,
+  portalInfos,
+  isVrm = false
+) {
   return new Promise((resolve, reject) => {
     let client
     this.logger.info('connecting to %s:%d', address, port)

@@ -7,6 +7,7 @@ function InfluxDB (app) {
   this.logger = app.getLogger('influxdb')
   this.debug = this.logger.debug.bind(this.logger)
   this.info = this.logger.info.bind(this.logger)
+  this.error = this.logger.error.bind(this.logger)
   this.connected = false
 
   this.accumulatedPoints = []
@@ -26,12 +27,21 @@ function InfluxDB (app) {
       return
     }
 
-    const { host, port, database, retention } = settings.influxdb
+    const {
+      host,
+      port,
+      database,
+      retention,
+      username,
+      password
+    } = settings.influxdb
 
     if (
       this.host !== host ||
       this.port !== port ||
-      this.database !== database
+      this.database !== database ||
+      this.username !== username ||
+      this.password !== password
     ) {
       this.connected = false
       this.connect()
@@ -49,7 +59,7 @@ function InfluxDB (app) {
               })
           }, 5000)
         })
-    } else if (!_.isUndefined(this.retention) && retention != this.retention) {
+    } else if (!_.isUndefined(this.retention) && retention !== this.retention) {
       this.client.then(client => {
         this.setRetentionPolicy(client, retention)
       })
@@ -85,17 +95,30 @@ InfluxDB.prototype.setRetentionPolicy = function (client, retention) {
 }
 
 InfluxDB.prototype.connect = function () {
-  const { host, port, database, retention } = this.app.config.settings.influxdb
+  const {
+    host,
+    port,
+    database,
+    retention,
+    username,
+    password
+  } = this.app.config.settings.influxdb
   this.host = host
   this.port = port
   this.database = database
-  this.info(`Attempting connection to ${host}:${port}/${database}`)
+  this.username = username !== '' ? username : 'root'
+  this.password = password !== '' ? password : 'root'
+  this.info(
+    `Attempting connection to ${host}:${port}/${database} using ${this.username}:*****`
+  )
   this.client = new Promise((resolve, reject) => {
     const client = new Influx.InfluxDB({
       host: host,
       port: port,
       protocol: 'http',
-      database: database
+      database: database,
+      username: username,
+      password: password
     })
 
     this.connected = true
@@ -109,7 +132,9 @@ InfluxDB.prototype.connect = function () {
             .then(() => {
               resolve(client)
             })
-            .catch(reject)
+            .catch(reject => {
+              this.error(`Unable to set retention policy: ${reject}`)
+            })
         } else {
           client.createDatabase(database).then(result => {
             this.info('Created InfluxDb database ' + database)
@@ -117,11 +142,15 @@ InfluxDB.prototype.connect = function () {
               .then(() => {
                 resolve(client)
               })
-              .catch(reject)
+              .catch(reject => {
+                this.error(`Unable to create database ${database}: ${reject}`)
+              })
           })
         }
       })
-      .catch(reject)
+      .catch(reject => {
+        this.error(`Unable to connect: ${reject}`)
+      })
   })
   return this.client
 }

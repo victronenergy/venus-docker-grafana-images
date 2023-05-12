@@ -1,7 +1,8 @@
-const fetch = require('node-fetch')
+const axios = require('axios')
 const fs = require('fs')
 const _ = require('lodash')
 const mqtt = require('mqtt')
+const bodyParser = require('body-parser')
 
 const apiUrl = 'https://vrmapi.victronenergy.com'
 
@@ -18,43 +19,44 @@ module.exports = function (app) {
     logger.error(msg)
   }
 
-  app.post('/admin-api/requestToken', (req, res, next) => {
+  // TODO: loadConfig, saveConfig, loadSecrets, and saveSecrets
+  // TODO: should be made part of app, returning Promise
+  // TODO: so that they can be chained and reused everywhere
+  // TODO: for now saveConfig and saveSecrets is done from many places, ugly !!!
+
+  app.use(bodyParser.json())
+
+  // TODO: expose VRM routes same way as admin api in general
+  // TODO: make admin api optional while allowing vrm reload?
+  app.post('/admin-api/vrmLogin', (req, res, next) => {
     if (!req.body.tokenName || req.body.tokenName.length === 0) {
       good('Please enter a token name')
       res.status(500).send()
       return
     }
 
-    const post = {
-      username: req.body.username,
-      password: req.body.password
-    }
     good('Logging In')
-    fetch(`${apiUrl}/v2/auth/login`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(post)
-    })
-      .then(response => response.json())
+    axios
+      .put(`${apiUrl}/v2/auth/login`, {
+        username: req.body.username,
+        password: req.body.password
+      })
+      .then(response => response.data)
       .then(response => {
         if (!_.isUndefined(response.success) && !response.success) {
-          fail(response.errors)
-          logger.error(response.errors)
+          fail(response.errors.name || response.errors)
+          logger.error(response.errors.name || response.errors)
           res.status(500).send()
         } else {
           const token = response['token']
           const idUser = response['idUser']
-
-          fetch(`${apiUrl}/v2/users/${idUser}/accesstokens/create`, {
-            method: 'POST',
-            headers: { 'X-Authorization': `Bearer ${token}` },
-            body: JSON.stringify({
-              name: req.body.tokenName
-            })
-          })
-            .then(response => response.json())
+          axios
+            .post(
+              `${apiUrl}/v2/users/${idUser}/accesstokens/create`,
+              { name: req.body.tokenName },
+              { headers: { 'X-Authorization': `Bearer ${token}` } }
+            )
+            .then(response => response.data)
             .then(response => {
               if (!_.isUndefined(response.success) && !response.success) {
                 fail(response.errors.name || response.errors)
@@ -91,7 +93,7 @@ module.exports = function (app) {
   })
 
   app.post('/admin-api/vrmLogout', (req, res, next) => {
-    logger.info(`logging out of VRM`)
+    logger.info('logging out of VRM')
 
     const scopy = JSON.parse(JSON.stringify(app.config.secrets))
     delete scopy.vrmToken
@@ -119,6 +121,18 @@ module.exports = function (app) {
     )
   })
 
+  app.put('/admin-api/vrmRefresh', (req, res, next) => {
+    app.vrmDiscovered = []
+    /*
+    app.emit('serverevent', {
+      type: 'VRMDISCOVERY',
+      data: []
+    })
+    */
+    app.vrm.loadPortalIDs()
+    res.status(200).send()
+  })
+
   function loadPortalIDs () {
     if (!app.config.secrets.vrmToken) {
       fail('Please login')
@@ -127,10 +141,11 @@ module.exports = function (app) {
 
     good('Getting installations')
 
-    fetch(`${apiUrl}/v2/users/${app.config.secrets.vrmUserId}/installations`, {
-      headers: { 'X-Authorization': `Token ${app.config.secrets.vrmToken}` }
-    })
-      .then(response => response.json())
+    axios
+      .get(`${apiUrl}/v2/users/${app.config.secrets.vrmUserId}/installations`, {
+        headers: { 'X-Authorization': `Token ${app.config.secrets.vrmToken}` }
+      })
+      .then(response => response.data)
       .then(response => {
         if (!_.isUndefined(response.success) && !response.success) {
           fail(response.errors)
@@ -155,6 +170,7 @@ module.exports = function (app) {
             app.saveSettings()
           }
 
+          console.log('vrmDisovered: ' + JSON.stringify(devices))
           app.emit('vrmDiscovered', devices)
           good('Installations Retrieved')
         }
@@ -167,11 +183,17 @@ module.exports = function (app) {
 
   function connectMQTT (address, port) {
     return new Promise((resolve, reject) => {
-      fetch(`${apiUrl}/v2/auth/generatetoken`, {
-        method: 'POST',
-        headers: { 'X-Authorization': `Token ${app.config.secrets.vrmToken}` }
-      })
-        .then(response => response.json())
+      axios
+        .post(
+          `${apiUrl}/v2/auth/generatetoken`,
+          {},
+          {
+            headers: {
+              'X-Authorization': `Token ${app.config.secrets.vrmToken}`
+            }
+          }
+        )
+        .then(response => response.data)
         .then(response => {
           if (_.isUndefined(response.token)) {
             fail(response.errors)

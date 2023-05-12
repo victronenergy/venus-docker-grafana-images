@@ -3,123 +3,36 @@ const path = require('path')
 const http = require('http')
 const _ = require('lodash')
 const fs = require('fs')
+const createRootLogger = require('./logger')
 const Loader = require('./loader')
 const InfluxDB = require('./influxdb')
-const winston = require('winston')
-const LogStorageTransport = require('./transport')
-const auth = require('basic-auth')
+const bodyParser = require('body-parser')
 const compare = require('tsscmp')
+const auth = require('basic-auth')
+
+const defaultInfluxDBURL = new URL(
+  process.env.VGS_INFLUXDB_URL || 'http://influxdb:8086'
+)
+const defaultInfluxDBUsername = process.env.VGS_INFLUXDB_USERNAME || ''
+const defaultInfluxDBPassword = process.env.VGS_INFLUXDB_PASSWORD || ''
+const defaultInfluxDBDatabase = 'venus'
+const defaultInfluxDBRetention = '30d'
+
+const defaultAdminUsername = 'admin'
+const defaultAdminPassword = 'admin'
 
 const logMessages = []
 
-function Server (opts) {
-  process.on('SIGINT', function () {
-    process.exit()
-  })
-
-  const bodyParser = require('body-parser')
-  const app = express()
-  this.app = app
-
-  const adminCrefentials = (req, res, next) => {
-    const credentials = auth(req)
-    let login = this.app.config.secrets.login
-    if (!login) {
-      login = {
-        username: 'admin',
-        password: 'admin'
-      }
-    }
-
-    if (
-      !credentials ||
-      compare(credentials.name, login.username) === false ||
-      compare(credentials.pass, login.password) == false
-    ) {
-      res.statusCode = 401
-      res.setHeader('WWW-Authenticate', 'Basic realm="example"')
-      res.status(401).send()
-    } else {
-      next()
-    }
+function loadSecrets (app) {
+  try {
+    const contents = fs.readFileSync(app.config.secretsLocation)
+    app.config.secrets = JSON.parse(contents)
+  } catch (err) {
+    app.config.secrets = {}
   }
+}
 
-  app.use(['/admin-api/*', '/admin/*'], adminCrefentials)
-
-  const logRequestStart = (req, res, next) => {
-    app.logger.silly(`${req.method} ${req.originalUrl}`)
-
-    res.on('finish', () => {
-      app.logger.silly(
-        `${res.statusCode} ${res.statusMessage}; ${res.get('Content-Length') ||
-          0}b sent`
-      )
-    })
-
-    next()
-  }
-
-  app.use(logRequestStart)
-
-  app.__argv = process.argv.slice(2)
-  app.argv = require('minimist')(app.__argv)
-
-  const format = winston.format.printf((info, oppts) => {
-    return `[${info.level}] [${info.label}] ${info.message} ${info.stack || ''}`
-  })
-
-  app.logTransport = new LogStorageTransport(app, {
-    format: winston.format.combine(
-      winston.format.errors({ stack: true }),
-      winston.format.splat(),
-      winston.format.timestamp(),
-      winston.format.json()
-    ),
-    handleExceptions: true
-  })
-
-  app.rootLogger = winston.createLogger({
-    level: 'info',
-    transports: [
-      new winston.transports.Console({
-        format: winston.format.combine(
-          winston.format.errors({ stack: true }),
-          winston.format.splat(),
-          format
-        ),
-        handleExceptions: true
-      }),
-      this.app.logTransport
-    ]
-  })
-  app.rootLogger.exitOnError = false
-
-  this.app.logger = this.app.rootLogger.child({ label: 'venus-server' })
-  this.app.getLogger = label => {
-    return this.app.rootLogger.child({ label: label })
-  }
-  this.app.debug = this.app.logger.debug.bind(this.app.logger)
-  this.app.info = this.app.logger.info.bind(this.app.logger)
-
-  app.use(bodyParser.json())
-
-  app.use('/admin', express.static(__dirname + '/../public'))
-
-  app.get('/', (req, res) => {
-    res.redirect('/admin')
-  })
-
-  let configDir = app.argv.c
-
-  if (!configDir) {
-    configDir = '/config'
-  }
-
-  app.config = {
-    configLocation: path.join(configDir, 'config.json'),
-    secretsLocation: path.join(configDir, 'secrets.json')
-  }
-
+function loadConfig (app) {
   try {
     const contents = fs.readFileSync(app.config.configLocation)
     app.config.settings = JSON.parse(contents)
@@ -138,10 +51,12 @@ function Server (opts) {
         hosts: []
       },
       influxdb: {
-        host: 'influxdb',
-        port: 8086,
-        database: 'venus',
-        retention: '30d'
+        host: defaultInfluxDBURL.hostname,
+        port: defaultInfluxDBURL.port,
+        username: defaultInfluxDBUsername,
+        password: defaultInfluxDBPassword,
+        database: defaultInfluxDBDatabase,
+        retention: defaultInfluxDBRetention
       }
     }
 
@@ -150,60 +65,83 @@ function Server (opts) {
       JSON.stringify(app.config.settings, null, 2)
     )
   }
+}
 
+function saveConfig (app, cb) {
+  fs.writeFile(
+    app.config.configLocation,
+    JSON.stringify(app.config.settings, null, 2),
+    err => {
+      if (err) {
+        app.logger.error(err)
+      }
+      if (cb) {
+        cb(err)
+      }
+    }
+  )
+}
+
+function Server (options) {
+  const app = express()
+  this.app = app
+
+  app.config = {
+    configLocation: path.join(options.configPath, 'config.json'),
+    secretsLocation: path.join(options.configPath, 'secrets.json')
+  }
+
+  loadSecrets(app)
+  loadConfig(app)
+  createRootLogger(app, 'venus-grafana-server', 'info')
   if (app.config.settings.debug) {
     app.rootLogger.level = 'debug'
   }
 
-  try {
-    const contents = fs.readFileSync(app.config.secretsLocation)
-    app.config.secrets = JSON.parse(contents)
-  } catch (err) {
-    app.config.secrets = {}
-  }
-
   app.debug('Settings %j', app.config.settings)
 
-  app.started = false
-  _.merge(app, opts)
-
   app.saveSettings = cb => {
-    fs.writeFile(
-      app.config.configLocation,
-      JSON.stringify(app.config.settings, null, 2),
-      err => {
-        if (err) {
-          app.logger.error(err)
-        }
-        if (cb) {
-          cb(err)
-        }
-      }
-    )
+    saveConfig(app, cb)
   }
-}
 
-module.exports = Server
+  app.options = options
+  app.started = false
+}
 
 Server.prototype.start = function () {
   const self = this
   const app = this.app
 
+  // TODO: clean this event handling up
   app.lastServerEvents = {}
   app.on('serverevent', event => {
     if (event.type) {
       app.lastServerEvents[event.type] = event
     }
   })
+
+  // TODO: clean upnp event handling up
   app.upnpDiscovered = {}
-  app.emit('serverevent', {
-    type: 'UPNPDISCOVERY',
-    data: []
+
+  app.on('upnpDiscoveryDidStart', info => {
+    app.upnpDiscovered = {}
+    app.emit('serverevent', {
+      type: 'UPNPDISCOVERY',
+      data: []
+    })
   })
+
+  app.on('upnpDiscoveryDidStop', info => {
+    app.upnpDiscovered = {}
+    app.emit('serverevent', {
+      type: 'UPNPDISCOVERY',
+      data: []
+    })
+  })
+
   app.on('upnpDiscovered', info => {
     if (_.isUndefined(app.upnpDiscovered[info.portalId])) {
       app.upnpDiscovered[info.portalId] = info
-      app.emit('upnpDiscoveredChanged', app.upnpDiscovered)
       app.info('Found new UPNP device %j', info)
 
       app.emit('serverevent', {
@@ -213,11 +151,14 @@ Server.prototype.start = function () {
     }
   })
 
+  // TODO: clean vrm event handling up
   app.vrmDiscovered = []
+
   app.emit('serverevent', {
     type: 'VRMDISCOVERY',
     data: []
   })
+
   app.on('vrmDiscovered', devices => {
     app.vrmDiscovered = devices
     app.emit('vrmDiscoveredChanged', app.vrmDiscovered)
@@ -242,6 +183,8 @@ Server.prototype.start = function () {
   })
 
   app.upnp = require('./upnp')(this.app)
+  app.upnpLogger = app.upnp.logger
+
   app.vrm = require('./vrm')(this.app)
   app.loader = new Loader(app)
   app.influxdb = new InfluxDB(app)
@@ -267,14 +210,15 @@ Server.prototype.start = function () {
       }, 5000)
     })
 
+  // TODO: this is called from many places, clean up and clarify
   function settingsChanged (settings) {
     if (settings.upnp.enabled && app.upnp.isRunning() === false) {
-      if (!app.argv['external-upnp']) {
+      if (!app.options.discoveryApiEndpoint) {
         app.upnp.start()
       }
     }
     if (!settings.upnp.enabled && app.upnp.isRunning()) {
-      if (!app.argv['external-upnp']) {
+      if (!app.options.discoveryApiEndpoint) {
         app.upnp.stop()
       }
     }
@@ -317,12 +261,66 @@ Server.prototype.start = function () {
       }
       app.server = server
 
-      app.websocket = require('./websocket')(app)
-      app.websocket.start()
+      app.use(bodyParser.json())
 
-      require('./routes')(app)
+      // basic auth
+      const adminCredentials = (req, res, next) => {
+        const credentials = auth(req)
+        let login = app.config.secrets.login
+        if (!login) {
+          login = {
+            username: defaultAdminUsername,
+            password: defaultAdminPassword
+          }
+        }
 
-      const primaryPort = 8088
+        if (
+          !credentials ||
+          compare(credentials.name, login.username) === false ||
+          compare(credentials.pass, login.password) === false
+        ) {
+          res.statusCode = 401
+          res.setHeader('WWW-Authenticate', 'Basic realm="example"')
+          res.status(401).send()
+        } else {
+          next()
+        }
+      }
+
+      // setup /admin-api routes and authentication, if enabled
+      if (app.options.adminApiEndpoint) {
+        app.logger.info(`setting up ${app.options.adminApiEndpoint} routes`)
+
+        app.use('/admin', adminCredentials)
+        app.use('/admin', express.static(path.join(__dirname, '../../dist')))
+        app.get('/', (req, res) => {
+          res.redirect('/admin')
+        })
+
+        app.use(app.options.adminApiEndpoint, adminCredentials)
+        app.use(app.options.adminApiEndpoint, require('./admin-api')(app))
+
+        app.websocket = require('./websocket')(app)
+        app.websocket.start()
+      }
+
+      // setup /discovery-api routes, if enabled
+      if (app.options.discoveryApiEndpoint) {
+        app.logger.info(`setting up ${app.options.discoveryApiEndpoint} routes`)
+        app.use(
+          app.options.discoveryApiEndpoint,
+          require('./discovery-api')(app)
+        )
+      }
+
+      // setup /grafana-api routes, if enabled
+      if (app.options.grafanaApiEndpoint) {
+        app.logger.info(`setting up ${app.options.grafanaApiEndpoint} routes`)
+        app.use(app.options.grafanaApiEndpoint, require('./grafana-api')(app))
+      }
+
+      // listen
+      const primaryPort = app.options.port
       server.listen(primaryPort, function (err) {
         app.logger.info(`running at 0.0.0.0:${primaryPort}`)
         app.started = true
@@ -364,3 +362,5 @@ Server.prototype.stop = function (cb) {
     }
   })
 }
+
+module.exports = Server

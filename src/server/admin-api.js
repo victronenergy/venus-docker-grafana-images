@@ -1,8 +1,9 @@
+const router = require('express').Router()
 const fs = require('fs')
 const _ = require('lodash')
 
 module.exports = function (app) {
-  app.get('/admin-api/config', (req, res, next) => {
+  router.get('/config', (req, res, next) => {
     fs.readFile(app.config.configLocation, (err, contents) => {
       if (err) {
         app.logger.error(err)
@@ -21,7 +22,7 @@ module.exports = function (app) {
     })
   })
 
-  app.put('/admin-api/config', (req, res, next) => {
+  router.put('/config', (req, res, next) => {
     fs.writeFile(
       app.config.configLocation,
       JSON.stringify(req.body, null, 2),
@@ -39,7 +40,7 @@ module.exports = function (app) {
     )
   })
 
-  app.post('/admin-api/security', (req, res, next) => {
+  router.post('/security', (req, res, next) => {
     if (
       req.body.username &&
       req.body.username.length > 0 &&
@@ -64,70 +65,26 @@ module.exports = function (app) {
     }
   })
 
-  app.get('/admin-api/log', (req, res, next) => {
-    res.json(app.logTransport.entries)
+  router.get('/log', (req, res, next) => {
+    res.json({ entries: app.logTransport.entries })
   })
 
-  const upnpLog = app.getLogger('upnp')
-  app.post('/log', (req, res, next) => {
-    upnpLog[req.body.level](req.body.message)
-    res.send()
+  router.get('/debug', (req, res, next) => {
+    const value = app.rootLogger.level === 'debug' ? true : false
+    res.send(value)
   })
 
-  app.post('/upnpDiscovered', (req, res, next) => {
-    app.emit('upnpDiscovered', req.body)
-    res.send()
-  })
-
-  app.put('/admin-api/refreshVRM', (req, res, next) => {
-    app.vrmDiscovered = []
-    app.emit('serverevent', {
-      type: 'VRMDISCOVERY',
-      data: []
-    })
-    app.vrm.loadPortalIDs()
-    res.status(200).send()
-  })
-
-  app.put('/admin-api/debug', (req, res, next) => {
+  router.put('/debug', (req, res, next) => {
     app.rootLogger.level = req.body.value ? 'debug' : 'info'
+    app.logger[app.rootLogger.level](
+      'Log level changed to: ' + app.rootLogger.level
+    )
     app.emit('serverevent', {
       type: 'DEBUG',
       data: req.body.value
     })
-    res.send()
+    res.send(req.body.value)
   })
 
-  app.get('/grafana-api', (req, res, next) => {
-    res.send('ok')
-  })
-
-  app.post('/grafana-api/search', (req, res, next) => {
-    res.json(['portals'])
-  })
-
-  app.post('/grafana-api/query', (req, res, next) => {
-    const request = req.body
-
-    if (app.lastStats && request.targets) {
-      if (request.targets.length > 0 && request.targets[0].type === 'table') {
-        if (request.targets[0].target === 'portals') {
-          const json = {
-            columns: [
-              { text: 'Name', type: 'string' },
-              { text: 'Last Measurement', type: 'string' }
-            ],
-            type: 'table'
-          }
-
-          json.rows = _.values(app.lastStats.deviceStatistics).map(stats => {
-            return [stats.name, stats.lastMeasurement.toString()]
-          })
-          res.json([json])
-          return
-        }
-      }
-    }
-    res.json([])
-  })
+  return router
 }
