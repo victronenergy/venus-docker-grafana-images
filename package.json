@@ -6,7 +6,7 @@
     "start": "bin/venus-grafana-server.js",
     "format": "prettier-standard src/**/*.js*",
     "lint": "eslint src/ --fix",
-    "prepublishOnly": "npm run clean && npm run build",
+    "prepare": "npm run clean && npm run build",
     "clean": "rimraf ./build",
     "watch-client": "webpack serve --mode development --progress --hot",
     "watch-grafana-server": "babel-watch bin/venus-grafana-server.js -- --config-path ./config/ --port 8088",
@@ -15,6 +15,13 @@
     "dev": "VGS_INFLUXDB_URL=http://localhost:8086 VGS_INFLUXDB_USERNAME=s3cr4t VGS_INFLUXDB_PASSWORD=s3cr4t concurrently npm:watch-grafana-server npm:watch-client",
     "create-release": "github-create-release --owner victronenergy --repository venus-docker-grafana-images",
     "release": "git tag -d v$npm_package_version; git tag v$npm_package_version && git push --tags && git push && npm run create-release"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/victronenergy/venus-docker-grafana-images.git"
+  },
+  "bugs": {
+    "url": "https://github.com/victronenergy/venus-docker-grafana-images/issues"
   },
   "lint-staged": {
     "linters": {
@@ -40,6 +47,9 @@
   "engines": {
     "node": ">=16.x <=18.x"
   },
+  "files": [
+    "src", "bin", "dist"
+  ],
   "dependencies": {
     "axios": "^1.4.0",
     "basic-auth": "^2.0.1",
@@ -115,12 +125,5 @@
     "hooks": {
       "pre-commit": "lint-staged"
     }
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/victronenergy/venus-docker-grafana-images.git"
-  },
-  "bugs": {
-    "url": "https://github.com/victronenergy/venus-docker-grafana-images/issues"
   }
 }
