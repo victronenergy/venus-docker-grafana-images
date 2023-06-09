@@ -65,7 +65,7 @@ services:
       context: .
       dockerfile: docker-upnp/Dockerfile
     network_mode: host
-    command: ["--discovery-api", "http://host.docker.internal:8088/discovery-api/"]
+    command: ["./bin/venus-upnp-browser.js", "--discovery-api", "http://host.docker.internal:8088/discovery-api/"]
     depends_on:
       playground-venus-grafana-server:
         condition: service_healthy
